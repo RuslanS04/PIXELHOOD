@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIXELHOOD — 10,000 Unique Pixel Characters on the Blockchain</title>
+    <meta name="description" content="PIXELHOOD is a collection of 10,000 unique pixel art characters living on the Ethereum blockchain. Join the hood, mint your character, and become part of the community.">
+    <meta property="og:title" content="PIXELHOOD — 10,000 Unique Pixel Characters">
+    <meta property="og:description" content="A collection of 10,000 unique pixel art characters on the Ethereum blockchain.">
+    <meta property="og:type" content="website">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:site" content="@pixelhood_x">
+
+    <!-- Favicon (inline pixel art) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%238b5cf6'/><text x='2' y='12' font-size='11' fill='white'>P</text></svg>">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- ethers.js for wallet/mint -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js" defer></script>
+
+    <style>
+        /* ============================================
+           CSS RESET & ROOT
+           ============================================ */
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-primary: #07070d;
+            --bg-secondary: #0e0e1a;
+            --bg-card: rgba(139, 92, 246, 0.06);
+            --bg-card-hover: rgba(139, 92, 246, 0.12);
+            --color-primary: #8b5cf6;
+            --color-primary-glow: rgba(139, 92, 246, 0.4);
+            --color-secondary: #06b6d4;
+            --color-accent: #f97316;
+            --color-success: #22c55e;
+            --color-danger: #ef4444;
+            --color-text: #e2e8f0;
+            --color-text-dim: #94a3b8;
+            --color-text-muted: #64748b;
+            --color-border: rgba(139, 92, 246, 0.15);
+            --font-pixel: 'Press Start 2P', monospace;
+            --font-body: 'Inter', -apple-system, sans-serif;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 28px;
+            --glass-bg: rgba(14, 14, 26, 0.7);
+            --glass-border: rgba(139, 92, 246, 0.2);
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-primary);
+            color: var(--color-text);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           SCROLLBAR
+           ============================================ */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: var(--color-primary); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a78bfa; }
+
+        /* ============================================
+           PARTICLES CANVAS (behind everything)
+           ============================================ */
+        #particles-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* ============================================
+           NAVIGATION
+           ============================================ */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1000;
+            padding: 0 2rem;
+            height: 72px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.4s ease;
+            border-bottom: 1px solid transparent;
+        }
+
+        .navbar.scrolled {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .nav-logo {
+            font-family: var(--font-pixel);
+            font-size: 1rem;
+            color: var(--color-primary);
+            text-decoration: none;
+            text-shadow: 0 0 20px var(--color-primary-glow);
+            letter-spacing: 2px;
+            transition: text-shadow 0.3s;
+        }
+
+        .nav-logo:hover {
+            text-shadow: 0 0 30px var(--color-primary-glow), 0 0 60px var(--color-primary-glow);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--color-text-dim);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: color 0.3s;
+            position: relative;
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--color-primary);
+            transition: width 0.3s;
+            border-radius: 1px;
+        }
+
+        .nav-links a:hover { color: var(--color-text); }
+        .nav-links a:hover::after { width: 100%; }
+
+        .nav-socials {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-socials a {
+            color: var(--color-text-dim);
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 1px solid var(--color-border);
+            background: transparent;
+        }
+
+        .nav-socials a:hover {
+            color: var(--color-primary);
+            border-color: var(--color-primary);
+            background: rgba(139, 92, 246, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .nav-socials svg { width: 16px; height: 16px; }
+
+        /* Mobile menu */
+        .mobile-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--color-text);
+            cursor: pointer;
+            padding: 8px;
+        }
+
+        .mobile-menu {
+            display: none;
+            position: fixed;
+            top: 72px;
+            left: 0; right: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 1.5rem 2rem;
+            z-index: 999;
+        }
+
+        .mobile-menu.open { display: block; }
+
+        .mobile-menu a {
+            display: block;
+            color: var(--color-text-dim);
+            text-decoration: none;
+            padding: 0.75rem 0;
+            font-size: 1rem;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .mobile-menu a:last-child { border-bottom: none; }
+
+        /* ============================================
+           HERO SECTION
+           ============================================ */
+        .hero {
+            position: relative;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            padding: 6rem 2rem 4rem;
+            z-index: 1;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 800px;
+            height: 800px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+            animation: heroGlow 8s ease-in-out infinite alternate;
+            pointer-events: none;
+        }
+
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+            animation: heroGlow 10s ease-in-out infinite alternate-reverse;
+            pointer-events: none;
+        }
+
+        @keyframes heroGlow {
+            0% { transform: scale(1) translate(0, 0); }
+            100% { transform: scale(1.2) translate(30px, -20px); }
+        }
+
+        .hero-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .hero-content { position: relative; z-index: 2; }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            border: 1px solid var(--color-border);
+            background: var(--bg-card);
+            font-size: 0.75rem;
+            color: var(--color-primary);
+            margin-bottom: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+        }
+
+        .hero-title {
+            font-family: var(--font-pixel);
+            font-size: 3rem;
+            line-height: 1.3;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-secondary) 50%, var(--color-accent) 100%);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 6s ease-in-out infinite;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .hero-subtitle {
+            font-size: 1.125rem;
+            color: var(--color-text-dim);
+            margin-bottom: 2.5rem;
+            max-width: 480px;
+            line-height: 1.8;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 2rem;
+            border-radius: var(--radius-md);
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            border: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--color-primary), #7c3aed);
+            color: white;
+            box-shadow: 0 4px 20px var(--color-primary-glow);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px var(--color-primary-glow);
+        }
+
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            top: 0; left: -100%;
+            width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn-primary:hover::before { left: 100%; }
+
+        .btn-outline {
+            background: transparent;
+            color: var(--color-text);
+            border: 1px solid var(--color-border);
+        }
+
+        .btn-outline:hover {
+            border-color: var(--color-primary);
+            background: rgba(139, 92, 246, 0.08);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Visual - Floating Cards */
+        .hero-visual {
+            position: relative;
+            z-index: 2;
+            perspective: 1000px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 450px;
+        }
+
+        .hero-card-stack {
+            position: relative;
+            width: 300px;
+            height: 360px;
+            transform-style: preserve-3d;
+        }
+
+        .hero-card {
+            position: absolute;
+            width: 220px;
+            height: 260px;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 2px solid var(--color-border);
+            background: var(--bg-secondary);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .hero-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated;
+        }
+
+        .hero-card:nth-child(1) {
+            top: 20px; left: 0;
+            transform: rotate(-12deg) translateZ(0px);
+            animation: floatCard1 6s ease-in-out infinite;
+            z-index: 1;
+        }
+
+        .hero-card:nth-child(2) {
+            top: 0; left: 80px;
+            transform: rotate(0deg) translateZ(20px);
+            animation: floatCard2 7s ease-in-out infinite;
+            z-index: 3;
+            width: 240px;
+            height: 280px;
+            border-color: var(--color-primary);
+            box-shadow: 0 20px 60px rgba(139, 92, 246, 0.3);
+        }
+
+        .hero-card:nth-child(3) {
+            top: 40px; right: -20px; left: auto;
+            transform: rotate(10deg) translateZ(0px);
+            animation: floatCard3 8s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        @keyframes floatCard1 {
+            0%, 100% { transform: rotate(-12deg) translateY(0) translateZ(0); }
+            50% { transform: rotate(-10deg) translateY(-15px) translateZ(10px); }
+        }
+
+        @keyframes floatCard2 {
+            0%, 100% { transform: rotate(0deg) translateY(0) translateZ(20px); }
+            50% { transform: rotate(2deg) translateY(-20px) translateZ(30px); }
+        }
+
+        @keyframes floatCard3 {
+            0%, 100% { transform: rotate(10deg) translateY(0) translateZ(0); }
+            50% { transform: rotate(8deg) translateY(-12px) translateZ(10px); }
+        }
+
+        .hero-card-stack:hover .hero-card:nth-child(1) {
+            transform: rotate(-20deg) translateX(-30px) translateZ(10px);
+        }
+        .hero-card-stack:hover .hero-card:nth-child(3) {
+            transform: rotate(18deg) translateX(30px) translateZ(10px);
+        }
+
+        /* Scroll indicator */
+        .scroll-indicator {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--color-text-muted);
+            font-size: 0.75rem;
+            animation: bounce 2s ease-in-out infinite;
+        }
+
+        .scroll-indicator .mouse {
+            width: 24px;
+            height: 38px;
+            border: 2px solid var(--color-text-muted);
+            border-radius: 12px;
+            position: relative;
+        }
+
+        .scroll-indicator .mouse::after {
+            content: '';
+            position: absolute;
+            top: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 8px;
+            background: var(--color-primary);
+            border-radius: 2px;
+            animation: scrollDot 2s ease-in-out infinite;
+        }
+
+        @keyframes scrollDot {
+            0%, 100% { top: 8px; opacity: 1; }
+            100% { top: 22px; opacity: 0; }
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(8px); }
+        }
+
+        /* ============================================
+           STATS SECTION
+           ============================================ */
+        .stats-section {
+            position: relative;
+            z-index: 1;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--color-border);
+            border-bottom: 1px solid var(--color-border);
+            background: var(--bg-secondary);
+        }
+
+        .stats-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1.5rem;
+            position: relative;
+        }
+
+        .stat-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 20%;
+            height: 60%;
+            width: 1px;
+            background: var(--color-border);
+        }
+
+        .stat-value {
+            font-family: var(--font-pixel);
+            font-size: 1.5rem;
+            color: var(--color-primary);
+            margin-bottom: 0.5rem;
+            text-shadow: 0 0 20px var(--color-primary-glow);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 500;
+        }
+
+        /* ============================================
+           SECTION COMMON
+           ============================================ */
+        .section {
+            position: relative;
+            z-index: 1;
+            padding: 6rem 2rem;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-tag {
+            font-family: var(--font-pixel);
+            font-size: 0.65rem;
+            color: var(--color-accent);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .section-title {
+            font-family: var(--font-pixel);
+            font-size: 1.5rem;
+            line-height: 1.6;
+            margin-bottom: 1rem;
+            color: var(--color-text);
+        }
+
+        .section-desc {
+            color: var(--color-text-dim);
+            max-width: 600px;
+            margin: 0 auto;
+            font-size: 1rem;
+            line-height: 1.8;
+        }
+
+        /* ============================================
+           ABOUT SECTION
+           ============================================ */
+        .about-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+        }
+
+        .about-image-wrapper {
+            position: relative;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            border: 2px solid var(--color-border);
+            box-shadow: 0 20px 80px rgba(139, 92, 246, 0.15);
+            transition: transform 0.5s ease, box-shadow 0.5s ease;
+        }
+
+        .about-image-wrapper:hover {
+            transform: scale(1.02);
+            box-shadow: 0 30px 100px rgba(139, 92, 246, 0.25);
+        }
+
+        .about-image-wrapper img {
+            width: 100%;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .about-image-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .about-text h3 {
+            font-family: var(--font-pixel);
+            font-size: 1.1rem;
+            margin-bottom: 1.5rem;
+            color: var(--color-text);
+            line-height: 1.8;
+        }
+
+        .about-text p {
+            color: var(--color-text-dim);
+            line-height: 1.9;
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+        }
+
+        .about-features {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .about-feature {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            transition: all 0.3s;
+        }
+
+        .about-feature:hover {
+            border-color: var(--color-primary);
+            background: var(--bg-card-hover);
+            transform: translateX(4px);
+        }
+
+        .about-feature .icon {
+            font-size: 1.2rem;
+        }
+
+        .about-feature span {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: var(--color-text-dim);
+        }
+
+        /* ============================================
+           GALLERY SECTION (Infinite Marquee)
+           ============================================ */
+        .gallery-section {
+            position: relative;
+            z-index: 1;
+            padding: 6rem 0;
+            overflow: hidden;
+            background: var(--bg-secondary);
+        }
+
+        .gallery-section .section-header {
+            padding: 0 2rem;
+        }
+
+        .marquee-wrapper {
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            -webkit-mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+            mask-image: linear-gradient(90deg, transparent, black 8%, black 92%, transparent);
+        }
+
+        .marquee-track {
+            display: flex;
+            gap: 1rem;
+            width: max-content;
+        }
+
+        .marquee-track.left { animation: marqueeLeft 40s linear infinite; }
+        .marquee-track.right { animation: marqueeRight 35s linear infinite; }
+        .marquee-track.left-slow { animation: marqueeLeft 50s linear infinite; }
+
+        @keyframes marqueeLeft {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        @keyframes marqueeRight {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+        }
+
+        .marquee-item {
+            flex-shrink: 0;
+            width: 120px;
+            height: 120px;
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            border: 2px solid var(--color-border);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            cursor: pointer;
+        }
+
+        .marquee-item:hover {
+            transform: scale(1.15) translateY(-8px);
+            border-color: var(--color-primary);
+            box-shadow: 0 12px 40px var(--color-primary-glow);
+            z-index: 10;
+        }
+
+        .marquee-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            image-rendering: pixelated;
+        }
+
+        .gallery-cta {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 0 2rem;
+        }
+
+        /* ============================================
+           MINT SECTION
+           ============================================ */
+        .mint-section {
+            position: relative;
+            z-index: 1;
+            background: var(--bg-primary);
+        }
+
+        .mint-container {
+            max-width: 560px;
+            margin: 0 auto;
+        }
+
+        .mint-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: 2.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mint-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-secondary), var(--color-accent));
+        }
+
+        .mint-status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .mint-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4rem 1rem;
+            border-radius: 100px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mint-status-badge.live {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--color-success);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .mint-status-badge.live .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: var(--color-success);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .mint-status-badge.upcoming {
+            background: rgba(249, 115, 22, 0.15);
+            color: var(--color-accent);
+            border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .mint-phase {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+        }
+
+        .mint-progress-section {
+            margin-bottom: 2rem;
+        }
+
+        .mint-progress-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        .mint-progress-header span:first-child { color: var(--color-text-dim); }
+        .mint-progress-header span:last-child { 
+            color: var(--color-primary);
+            font-weight: 600;
+            font-family: var(--font-pixel);
+            font-size: 0.7rem;
+        }
+
+        .mint-progress-bar {
+            height: 12px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--color-border);
+        }
+
+        .mint-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-primary), var(--color-secondary));
+            border-radius: 6px;
+            width: 0%;
+            transition: width 1.5s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+        }
+
+        .mint-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            animation: shimmer 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .mint-price-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .mint-price-box {
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            text-align: center;
+        }
+
+        .mint-price-box .label {
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .mint-price-box .value {
+            font-family: var(--font-pixel);
+            font-size: 1rem;
+            color: var(--color-text);
+        }
+
+        .mint-price-box .value .eth {
+            color: var(--color-secondary);
+        }
+
+        .mint-quantity {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+        }
+
+        .mint-qty-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--color-border);
+            background: var(--bg-secondary);
+            color: var(--color-text);
+            font-size: 1.25rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-body);
+        }
+
+        .mint-qty-btn:hover {
+            border-color: var(--color-primary);
+            background: rgba(139, 92, 246, 0.15);
+            color: var(--color-primary);
+        }
+
+        .mint-qty-display {
+            font-family: var(--font-pixel);
+            font-size: 1.5rem;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .mint-total {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            background: rgba(139, 92, 246, 0.05);
+            border: 1px dashed var(--color-border);
+        }
+
+        .mint-total .label {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .mint-total .value {
+            font-family: var(--font-pixel);
+            font-size: 1.2rem;
+            color: var(--color-secondary);
+        }
+
+        .btn-mint {
+            width: 100%;
+            padding: 1.1rem;
+            font-family: var(--font-pixel);
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            justify-content: center;
+            margin-bottom: 1rem;
+        }
+
+        .btn-mint:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .btn-wallet {
+            width: 100%;
+            padding: 1rem;
+            justify-content: center;
+            background: transparent;
+            border: 1px solid var(--color-border);
+            color: var(--color-text);
+            font-weight: 600;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: var(--font-body);
+            font-size: 0.9rem;
+        }
+
+        .btn-wallet:hover {
+            border-color: var(--color-primary);
+            background: rgba(139, 92, 246, 0.08);
+        }
+
+        .btn-wallet.connected {
+            border-color: var(--color-success);
+            color: var(--color-success);
+        }
+
+        .mint-info {
+            margin-top: 1.5rem;
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           ROADMAP SECTION
+           ============================================ */
+        .roadmap-section {
+            background: var(--bg-secondary);
+        }
+
+        .roadmap-timeline {
+            position: relative;
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .roadmap-timeline::before {
+            content: '';
+            position: absolute;
+            left: 28px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary), var(--color-accent), transparent);
+        }
+
+        .roadmap-item {
+            position: relative;
+            padding-left: 72px;
+            margin-bottom: 3rem;
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+
+        .roadmap-item.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .roadmap-dot {
+            position: absolute;
+            left: 18px;
+            top: 4px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--bg-primary);
+            border: 3px solid var(--color-primary);
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .roadmap-item.active .roadmap-dot {
+            background: var(--color-primary);
+            box-shadow: 0 0 20px var(--color-primary-glow);
+        }
+
+        .roadmap-item.active .roadmap-dot::after {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: white;
+        }
+
+        .roadmap-phase {
+            font-family: var(--font-pixel);
+            font-size: 0.6rem;
+            color: var(--color-accent);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        .roadmap-card {
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            transition: all 0.3s;
+        }
+
+        .roadmap-card:hover {
+            border-color: var(--color-primary);
+            background: var(--bg-card-hover);
+            transform: translateX(8px);
+        }
+
+        .roadmap-card h4 {
+            font-size: 1.05rem;
+            margin-bottom: 0.75rem;
+            color: var(--color-text);
+            font-weight: 700;
+        }
+
+        .roadmap-card ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .roadmap-card li {
+            font-size: 0.875rem;
+            color: var(--color-text-dim);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .roadmap-card li::before {
+            content: '▸';
+            color: var(--color-primary);
+            font-weight: bold;
+        }
+
+        /* ============================================
+           FAQ SECTION
+           ============================================ */
+        .faq-list {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+            overflow: hidden;
+            background: var(--bg-card);
+            transition: all 0.3s;
+        }
+
+        .faq-item:hover {
+            border-color: rgba(139, 92, 246, 0.3);
+        }
+
+        .faq-question {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--color-text);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: var(--font-body);
+            text-align: left;
+            transition: color 0.3s;
+        }
+
+        .faq-question:hover { color: var(--color-primary); }
+
+        .faq-chevron {
+            transition: transform 0.3s;
+            flex-shrink: 0;
+            margin-left: 1rem;
+            color: var(--color-text-muted);
+        }
+
+        .faq-item.open .faq-chevron { transform: rotate(180deg); }
+
+        .faq-answer {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease, padding 0.4s ease;
+        }
+
+        .faq-item.open .faq-answer {
+            max-height: 300px;
+        }
+
+        .faq-answer-inner {
+            padding: 0 1.5rem 1.25rem;
+            color: var(--color-text-dim);
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+
+        /* ============================================
+           COMMUNITY SECTION
+           ============================================ */
+        .community-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .community-card {
+            padding: 2rem;
+            border-radius: var(--radius-lg);
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            text-decoration: none;
+            display: block;
+        }
+
+        .community-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--color-primary);
+            background: var(--bg-card-hover);
+            box-shadow: 0 20px 50px rgba(139, 92, 246, 0.15);
+        }
+
+        .community-card .card-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .community-card h4 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--color-text);
+            margin-bottom: 0.5rem;
+        }
+
+        .community-card p {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            line-height: 1.6;
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            position: relative;
+            z-index: 1;
+            padding: 3rem 2rem;
+            border-top: 1px solid var(--color-border);
+            background: var(--bg-secondary);
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .footer-logo {
+            font-family: var(--font-pixel);
+            font-size: 0.8rem;
+            color: var(--color-primary);
+            text-shadow: 0 0 10px var(--color-primary-glow);
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .footer-links a {
+            color: var(--color-text-muted);
+            text-decoration: none;
+            font-size: 0.8rem;
+            transition: color 0.3s;
+        }
+
+        .footer-links a:hover { color: var(--color-primary); }
+
+        .footer-copy {
+            color: var(--color-text-muted);
+            font-size: 0.75rem;
+        }
+
+        .footer-eth-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+            padding: 0.35rem 0.75rem;
+            border: 1px solid var(--color-border);
+            border-radius: 100px;
+        }
+
+        /* ============================================
+           ANIMATIONS (scroll reveal)
+           ============================================ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ============================================
+           RESPONSIVE
+           ============================================ */
+        @media (max-width: 1024px) {
+            .hero-container { grid-template-columns: 1fr; text-align: center; }
+            .hero-subtitle { margin: 0 auto 2.5rem; }
+            .hero-buttons { justify-content: center; }
+            .hero-visual { min-height: 350px; margin-top: 2rem; }
+            .about-grid { grid-template-columns: 1fr; gap: 2rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .stat-item:nth-child(2)::after { display: none; }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .mobile-toggle { display: block; }
+
+            .hero-title { font-size: 1.8rem; }
+            .hero-card-stack { transform: scale(0.8); }
+
+            .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+            .stat-item::after { display: none; }
+            .stat-value { font-size: 1.1rem; }
+
+            .section { padding: 4rem 1.5rem; }
+            .section-title { font-size: 1.1rem; }
+
+            .about-features { grid-template-columns: 1fr; }
+
+            .marquee-item { width: 90px; height: 90px; }
+
+            .mint-card { padding: 1.5rem; }
+            .mint-price-section { grid-template-columns: 1fr; }
+
+            .community-cards { grid-template-columns: 1fr; }
+
+            .footer-content { flex-direction: column; text-align: center; }
+        }
+
+        @media (max-width: 480px) {
+            .hero { padding: 5rem 1rem 3rem; }
+            .hero-title { font-size: 1.4rem; }
+            .hero-buttons { flex-direction: column; }
+            .hero-buttons .btn { width: 100%; justify-content: center; }
+            .hero-card-stack { transform: scale(0.65); }
+            .navbar { padding: 0 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Particles Background -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- ==========================================
+         NAVIGATION
+         ========================================== -->
+    <nav class="navbar" id="navbar">
+        <a href="#" class="nav-logo">PIXELHOOD</a>
+
+        <ul class="nav-links">
+            <li><a href="#about">About</a></li>
+            <li><a href="#gallery">Gallery</a></li>
+            <li><a href="#mint">Mint</a></li>
+            <li><a href="#roadmap">Roadmap</a></li>
+            <li><a href="#faq">FAQ</a></li>
+        </ul>
+
+        <div class="nav-socials">
+            <!-- OpenSea -->
+            <a href="https://opensea.io/collection/pixelhood-x" target="_blank" rel="noopener" title="OpenSea">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.374 0 0 5.374 0 12s5.374 12 12 12 12-5.374 12-12S18.626 0 12 0ZM5.92 12.403l.051-.081 3.123-4.884a.107.107 0 0 1 .187.014c.52 1.169.972 2.623.76 3.528-.088.372-.328.876-.614 1.342a2.405 2.405 0 0 1-.117.199.106.106 0 0 1-.09.045H6.013a.106.106 0 0 1-.093-.163Zm13.914 1.68a.109.109 0 0 1-.065.101c-.243.103-1.07.485-1.414.962-.878 1.222-1.548 2.97-3.048 2.97H9.053a4.019 4.019 0 0 1-4.013-4.028v-.072c0-.058.048-.106.108-.106h3.485c.07 0 .12.063.115.132-.026.226.017.459.125.67.206.42.636.682 1.099.682h1.726v-1.347H9.99a.11.11 0 0 1-.089-.173l.063-.09c.16-.231.391-.586.621-.992.156-.274.308-.568.43-.861.024-.052.043-.107.065-.16.033-.094.067-.182.091-.269a4.57 4.57 0 0 0 .065-.223c.057-.25.081-.514.081-.787 0-.108-.004-.221-.014-.329-.005-.117-.02-.238-.034-.363a3.037 3.037 0 0 0-.048-.283 6.031 6.031 0 0 0-.098-.468l-.014-.06c-.029-.108-.053-.209-.082-.317a11.358 11.358 0 0 0-.328-1.028c-.043-.127-.091-.243-.135-.358a5.413 5.413 0 0 0-.16-.39c-.048-.111-.096-.206-.14-.298-.029-.058-.058-.11-.082-.16l-.228-.413a.074.074 0 0 1 .084-.105l1.32.357h.006l.005.002.174.048.192.053.07.019v-.783c0-.379.302-.686.679-.686.188 0 .357.077.48.202a.689.689 0 0 1 .2.484v1.164l.142.039a.104.104 0 0 1 .029.014c.036.027.086.07.15.122.05.042.105.092.17.148.13.112.286.26.46.432.048.046.091.091.139.142.18.19.38.406.567.646.053.067.101.139.154.209.048.072.101.142.144.214.058.094.122.19.173.291.024.053.053.105.072.163.067.145.12.295.16.437a.547.547 0 0 1 .024.134v.01c.014.067.019.139.024.214.019.178.005.357-.034.525-.014.077-.034.15-.058.228-.024.072-.053.149-.086.223a3.108 3.108 0 0 1-.252.461c-.034.058-.072.122-.115.178-.043.062-.091.122-.134.182-.058.077-.122.154-.182.226a2.85 2.85 0 0 1-.192.226c-.082.098-.168.192-.259.283a3.35 3.35 0 0 1-.192.202c-.067.072-.139.139-.206.202a6.045 6.045 0 0 1-.17.154l-.11.1a.114.114 0 0 1-.072.026h-1.051v1.347h1.322c.295 0 .572-.103.8-.296.077-.067.415-.36.816-.802a.094.094 0 0 1 .05-.033l3.65-1.056a.108.108 0 0 1 .138.103v.018Z"/></svg>
+            </a>
+            <!-- X / Twitter -->
+            <a href="https://x.com/pixelhood_x" target="_blank" rel="noopener" title="X (Twitter)">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+            <!-- Discord -->
+            <!-- ====== PLACEHOLDER: Discord linkini buraya ekleyin ====== -->
+            <a href="#" target="_blank" rel="noopener" title="Discord" id="discord-link">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/></svg>
+            </a>
+        </div>
+
+        <button class="mobile-toggle" id="mobile-toggle" aria-label="Menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobile-menu">
+        <a href="#about" onclick="closeMobileMenu()">About</a>
+        <a href="#gallery" onclick="closeMobileMenu()">Gallery</a>
+        <a href="#mint" onclick="closeMobileMenu()">Mint</a>
+        <a href="#roadmap" onclick="closeMobileMenu()">Roadmap</a>
+        <a href="#faq" onclick="closeMobileMenu()">FAQ</a>
+    </div>
+
+    <!-- ==========================================
+         HERO SECTION
+         ========================================== -->
+    <section class="hero" id="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <div class="hero-badge">
+                    <span class="dot"></span>
+                    Minting Live
+                </div>
+                <h1 class="hero-title">PIXEL<br>HOOD</h1>
+                <p class="hero-subtitle">
+                    10,000 unique pixel art characters living on the Ethereum blockchain. 
+                    Each one is algorithmically generated and truly unique. Welcome to the hood.
+                </p>
+                <div class="hero-buttons">
+                    <a href="#mint" class="btn btn-primary">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                        Mint Now
+                    </a>
+                    <a href="https://opensea.io/collection/pixelhood-x" target="_blank" class="btn btn-outline">
+                        View on OpenSea
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                </div>
+            </div>
+
+            <!-- ==========================================
+                 HERO CARDS — 3 ayrı NFT görseli
+                 Dosyalar: images/hero-1.png, hero-2.png, hero-3.png
+                 ========================================== -->
+            <div class="hero-visual">
+                <div class="hero-card-stack">
+                    <div class="hero-card">
+                        <img src="hero-1.png" alt="PIXELHOOD #1">
+                    </div>
+                    <div class="hero-card">
+                        <img src="hero-2.png" alt="PIXELHOOD #2">
+                    </div>
+                    <div class="hero-card">
+                        <img src="hero-3.png" alt="PIXELHOOD #3">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="scroll-indicator">
+            <div class="mouse"></div>
+            <span>Scroll</span>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         STATS SECTION
+         ========================================== -->
+    <section class="stats-section">
+        <div class="stats-grid">
+            <div class="stat-item reveal">
+                <div class="stat-value" data-target="10000">0</div>
+                <div class="stat-label">Total Supply</div>
+            </div>
+            <div class="stat-item reveal">
+                <!-- ====== PLACEHOLDER: Minted sayısını güncelleyin ====== -->
+                <div class="stat-value" data-target="0">0</div>
+                <div class="stat-label">Minted</div>
+            </div>
+            <div class="stat-item reveal">
+                <!-- ====== PLACEHOLDER: Floor price güncelleyin ====== -->
+                <div class="stat-value" data-suffix=" ETH" data-target="0">—</div>
+                <div class="stat-label">Floor Price</div>
+            </div>
+            <div class="stat-item reveal">
+                <!-- ====== PLACEHOLDER: Holder sayısını güncelleyin ====== -->
+                <div class="stat-value" data-target="0">0</div>
+                <div class="stat-label">Unique Holders</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         ABOUT SECTION
+         Dosya: images/preview.png (koleksiyon grid görseli)
+         ========================================== -->
+    <section class="section" id="about">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">// The Collection</span>
+                <h2 class="section-title">What is PIXELHOOD?</h2>
+            </div>
+            <div class="about-grid">
+                <div class="about-image-wrapper reveal">
+                    <img src="preview.png" alt="PIXELHOOD NFT Collection Preview" loading="lazy">
+                </div>
+                <div class="about-text reveal">
+                    <h3>10,000 Pixels.<br>One Hood.</h3>
+                    <p>
+                        PIXELHOOD is a collection of 10,000 algorithmically generated pixel art characters, 
+                        each with their own unique combination of traits, colors, and personality. 
+                        Living forever on the Ethereum blockchain, every Pixelhood character is a one-of-a-kind 
+                        digital collectible.
+                    </p>
+                    <p>
+                        More than just art — PIXELHOOD is a community. Holders gain access to exclusive events, 
+                        future drops, and the ever-growing Pixelhood ecosystem. Owning a Pixelhood means 
+                        owning a piece of the hood.
+                    </p>
+                    <div class="about-features">
+                        <div class="about-feature">
+                            <span class="icon">🎨</span>
+                            <span>Pixel Art</span>
+                        </div>
+                        <div class="about-feature">
+                            <span class="icon">⛓️</span>
+                            <span>On-chain</span>
+                        </div>
+                        <div class="about-feature">
+                            <span class="icon">🎲</span>
+                            <span>10K Unique</span>
+                        </div>
+                        <div class="about-feature">
+                            <span class="icon">👥</span>
+                            <span>Community</span>
+                        </div>
+                        <div class="about-feature">
+                            <span class="icon">🔐</span>
+                            <span>ERC-721</span>
+                        </div>
+                        <div class="about-feature">
+                            <span class="icon">🚀</span>
+                            <span>SeaDrop</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         GALLERY SECTION
+         Dosyalar: images/nft-1.png ... images/nft-20.png
+         (20 farklı NFT görseli, 3 satırda tekrarlanır)
+         ========================================== -->
+    <section class="gallery-section" id="gallery">
+        <div class="section-header reveal">
+            <span class="section-tag">// The Gallery</span>
+            <h2 class="section-title">Explore the Hood</h2>
+            <p class="section-desc">Every character is unique. Discover the diversity of the Pixelhood collection.</p>
+        </div>
+
+        <!-- Row 1 — Sola doğru kayar: nft-1 ... nft-7 (2x tekrar) -->
+        <div class="marquee-wrapper">
+            <div class="marquee-track left">
+                <div class="marquee-item"><img src="nft-1.png" alt="NFT #1"></div>
+                <div class="marquee-item"><img src="nft-2.png" alt="NFT #2"></div>
+                <div class="marquee-item"><img src="nft-3.png" alt="NFT #3"></div>
+                <div class="marquee-item"><img src="nft-4.png" alt="NFT #4"></div>
+                <div class="marquee-item"><img src="nft-5.png" alt="NFT #5"></div>
+                <div class="marquee-item"><img src="nft-6.png" alt="NFT #6"></div>
+                <div class="marquee-item"><img src="nft-7.png" alt="NFT #7"></div>
+                <!-- Tekrar (sonsuz döngü için) -->
+                <div class="marquee-item"><img src="nft-1.png" alt="NFT #1"></div>
+                <div class="marquee-item"><img src="nft-2.png" alt="NFT #2"></div>
+                <div class="marquee-item"><img src="nft-3.png" alt="NFT #3"></div>
+                <div class="marquee-item"><img src="nft-4.png" alt="NFT #4"></div>
+                <div class="marquee-item"><img src="nft-5.png" alt="NFT #5"></div>
+                <div class="marquee-item"><img src="nft-6.png" alt="NFT #6"></div>
+                <div class="marquee-item"><img src="nft-7.png" alt="NFT #7"></div>
+            </div>
+        </div>
+
+        <!-- Row 2 — Sağa doğru kayar: nft-8 ... nft-14 (2x tekrar) -->
+        <div class="marquee-wrapper">
+            <div class="marquee-track right">
+                <div class="marquee-item"><img src="nft-8.png" alt="NFT #8"></div>
+                <div class="marquee-item"><img src="nft-9.png" alt="NFT #9"></div>
+                <div class="marquee-item"><img src="nft-10.png" alt="NFT #10"></div>
+                <div class="marquee-item"><img src="nft-11.png" alt="NFT #11"></div>
+                <div class="marquee-item"><img src="nft-12.png" alt="NFT #12"></div>
+                <div class="marquee-item"><img src="nft-13.png" alt="NFT #13"></div>
+                <div class="marquee-item"><img src="nft-14.png" alt="NFT #14"></div>
+                <!-- Tekrar -->
+                <div class="marquee-item"><img src="nft-8.png" alt="NFT #8"></div>
+                <div class="marquee-item"><img src="nft-9.png" alt="NFT #9"></div>
+                <div class="marquee-item"><img src="nft-10.png" alt="NFT #10"></div>
+                <div class="marquee-item"><img src="nft-11.png" alt="NFT #11"></div>
+                <div class="marquee-item"><img src="nft-12.png" alt="NFT #12"></div>
+                <div class="marquee-item"><img src="nft-13.png" alt="NFT #13"></div>
+                <div class="marquee-item"><img src="nft-14.png" alt="NFT #14"></div>
+            </div>
+        </div>
+
+        <!-- Row 3 — Yavaş sola kayar: nft-15 ... nft-20 (2x tekrar) -->
+        <div class="marquee-wrapper">
+            <div class="marquee-track left-slow">
+                <div class="marquee-item"><img src="nft-15.png" alt="NFT #15"></div>
+                <div class="marquee-item"><img src="nft-16.png" alt="NFT #16"></div>
+                <div class="marquee-item"><img src="nft-17.png" alt="NFT #17"></div>
+                <div class="marquee-item"><img src="nft-18.png" alt="NFT #18"></div>
+                <div class="marquee-item"><img src="nft-19.png" alt="NFT #19"></div>
+                <div class="marquee-item"><img src="nft-20.png" alt="NFT #20"></div>
+                <div class="marquee-item"><img src="nft-1.png" alt="NFT #1"></div>
+                <!-- Tekrar -->
+                <div class="marquee-item"><img src="nft-15.png" alt="NFT #15"></div>
+                <div class="marquee-item"><img src="nft-16.png" alt="NFT #16"></div>
+                <div class="marquee-item"><img src="nft-17.png" alt="NFT #17"></div>
+                <div class="marquee-item"><img src="nft-18.png" alt="NFT #18"></div>
+                <div class="marquee-item"><img src="nft-19.png" alt="NFT #19"></div>
+                <div class="marquee-item"><img src="nft-20.png" alt="NFT #20"></div>
+                <div class="marquee-item"><img src="nft-1.png" alt="NFT #1"></div>
+            </div>
+        </div>
+
+        <div class="gallery-cta reveal">
+            <a href="https://opensea.io/collection/pixelhood-x" target="_blank" class="btn btn-outline">
+                View Full Collection on OpenSea
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            </a>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         MINT SECTION
+         ========================================== -->
+    <section class="section mint-section" id="mint">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">// Mint</span>
+                <h2 class="section-title">Mint Your Pixelhood</h2>
+                <p class="section-desc">Connect your wallet and mint your very own unique pixel character.</p>
+            </div>
+
+            <div class="mint-container reveal">
+                <div class="mint-card">
+                    <!-- Status -->
+                    <div class="mint-status">
+                        <!-- ====== PLACEHOLDER: .live → .upcoming olarak değiştirilebilir ====== -->
+                        <div class="mint-status-badge live">
+                            <span class="dot"></span>
+                            Public Mint
+                        </div>
+                        <span class="mint-phase">Phase 1</span>
+                    </div>
+
+                    <!-- Progress -->
+                    <div class="mint-progress-section">
+                        <div class="mint-progress-header">
+                            <span>Minted</span>
+                            <span id="mint-progress-text">0 / 10,000</span>
+                        </div>
+                        <div class="mint-progress-bar">
+                            <div class="mint-progress-fill" id="mint-progress-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Price Info -->
+                    <div class="mint-price-section">
+                        <div class="mint-price-box">
+                            <div class="label">Price</div>
+                            <!-- ====== PLACEHOLDER: Mint fiyatını ayarlayın ====== -->
+                            <div class="value"><span class="eth">0.00</span> ETH</div>
+                        </div>
+                        <div class="mint-price-box">
+                            <div class="label">Max Per Wallet</div>
+                            <div class="value" id="max-per-wallet">10</div>
+                        </div>
+                    </div>
+
+                    <!-- Quantity Selector -->
+                    <div class="mint-quantity">
+                        <button class="mint-qty-btn" id="qty-minus" onclick="changeQty(-1)">−</button>
+                        <div class="mint-qty-display" id="mint-qty">1</div>
+                        <button class="mint-qty-btn" id="qty-plus" onclick="changeQty(1)">+</button>
+                    </div>
+
+                    <!-- Total Cost -->
+                    <div class="mint-total">
+                        <div class="label">Total Cost</div>
+                        <div class="value" id="mint-total-cost">0.00 ETH</div>
+                    </div>
+
+                    <!-- Wallet Button -->
+                    <button class="btn-wallet" id="btn-connect-wallet" onclick="connectWallet()">
+                        🔗 Connect Wallet
+                    </button>
+
+                    <!-- Mint Button -->
+                    <button class="btn btn-primary btn-mint" id="btn-mint" onclick="mintNFT()" disabled style="margin-top: 1rem;">
+                        ⚡ MINT NOW
+                    </button>
+
+                    <!-- Info -->
+                    <div class="mint-info">
+                        Smart contract powered by OpenSea's SeaDrop protocol.<br>
+                        Gas fees are additional. Make sure you're on Ethereum Mainnet.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         ROADMAP SECTION
+         ========================================== -->
+    <section class="section roadmap-section" id="roadmap">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">// Roadmap</span>
+                <h2 class="section-title">The Journey Ahead</h2>
+                <p class="section-desc">Our vision for the Pixelhood ecosystem and community.</p>
+            </div>
+
+            <div class="roadmap-timeline">
+                <div class="roadmap-item active" data-reveal>
+                    <div class="roadmap-dot"></div>
+                    <div class="roadmap-phase">Phase 1 — Launch</div>
+                    <div class="roadmap-card">
+                        <h4>🚀 The Genesis</h4>
+                        <ul>
+                            <li>Smart contract deployment on Ethereum</li>
+                            <li>Public mint via SeaDrop protocol</li>
+                            <li>Community channels (Discord, X) launch</li>
+                            <li>OpenSea collection listing</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="roadmap-item" data-reveal>
+                    <div class="roadmap-dot"></div>
+                    <div class="roadmap-phase">Phase 2 — Community</div>
+                    <div class="roadmap-card">
+                        <h4>👥 Building the Hood</h4>
+                        <ul>
+                            <li>Holder verification system</li>
+                            <li>Exclusive Discord channels for holders</li>
+                            <li>Community events and giveaways</li>
+                            <li>Rarity rankings reveal</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="roadmap-item" data-reveal>
+                    <div class="roadmap-dot"></div>
+                    <div class="roadmap-phase">Phase 3 — Expansion</div>
+                    <div class="roadmap-card">
+                        <h4>🌍 Beyond Pixels</h4>
+                        <ul>
+                            <li>Merch store for holders</li>
+                            <li>Cross-collection collaborations</li>
+                            <li>Animated pixel art upgrades</li>
+                            <li>Community treasury & voting</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="roadmap-item" data-reveal>
+                    <div class="roadmap-dot"></div>
+                    <div class="roadmap-phase">Phase 4 — Metaverse</div>
+                    <div class="roadmap-card">
+                        <h4>🌐 The Pixel Metaverse</h4>
+                        <ul>
+                            <li>Pixelhood virtual world</li>
+                            <li>Interactive pixel art gallery</li>
+                            <li>Play-to-earn game integration</li>
+                            <li>Next-gen collection drop for holders</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         FAQ SECTION
+         ========================================== -->
+    <section class="section" id="faq">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">// FAQ</span>
+                <h2 class="section-title">Got Questions?</h2>
+            </div>
+
+            <div class="faq-list">
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        What is PIXELHOOD?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            PIXELHOOD is a collection of 10,000 unique pixel art characters stored on the Ethereum blockchain. Each character is algorithmically generated with a unique combination of traits, making every single one a rare, one-of-a-kind digital collectible.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How do I mint a PIXELHOOD NFT?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            Connect your Ethereum wallet (MetaMask recommended) using the "Connect Wallet" button in the Mint section above. Select the number of NFTs you'd like to mint, then click "MINT NOW". Confirm the transaction in your wallet, and your Pixelhood character will be minted directly to your wallet.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        What blockchain is PIXELHOOD on?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            PIXELHOOD lives on the Ethereum blockchain (ERC-721 standard), deployed via OpenSea's SeaDrop protocol for a secure and reliable minting experience.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        How many can I mint?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            During the public mint phase, each wallet can mint up to 10 NFTs. This limit ensures fair distribution across the community.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item reveal">
+                    <button class="faq-question" onclick="toggleFaq(this)">
+                        Where can I view my NFT after minting?
+                        <svg class="faq-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <div class="faq-answer">
+                        <div class="faq-answer-inner">
+                            After minting, your PIXELHOOD NFT will appear in your wallet and on OpenSea. You can also view it on any Ethereum-compatible NFT marketplace or wallet that supports ERC-721 tokens.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         COMMUNITY SECTION
+         ========================================== -->
+    <section class="section" id="community" style="background: var(--bg-secondary);">
+        <div class="section-container">
+            <div class="section-header reveal">
+                <span class="section-tag">// Community</span>
+                <h2 class="section-title">Join the Hood</h2>
+                <p class="section-desc">Become part of the Pixelhood community across all platforms.</p>
+            </div>
+
+            <div class="community-cards">
+                <a href="https://opensea.io/collection/pixelhood-x" target="_blank" class="community-card reveal">
+                    <div class="card-icon">🌊</div>
+                    <h4>OpenSea</h4>
+                    <p>Browse, buy, and sell PIXELHOOD NFTs on the world's largest NFT marketplace.</p>
+                </a>
+                <a href="https://x.com/pixelhood_x" target="_blank" class="community-card reveal">
+                    <div class="card-icon">𝕏</div>
+                    <h4>X (Twitter)</h4>
+                    <p>Follow us for the latest news, announcements, and community highlights.</p>
+                </a>
+                <!-- ====== PLACEHOLDER: Discord linkini güncelleyin ====== -->
+                <a href="#" target="_blank" class="community-card reveal" id="discord-card">
+                    <div class="card-icon">💬</div>
+                    <h4>Discord</h4>
+                    <p>Join our Discord server for exclusive channels, events, and community vibes.</p>
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==========================================
+         FOOTER
+         ========================================== -->
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-logo">PIXELHOOD</div>
+            <div class="footer-links">
+                <a href="https://opensea.io/collection/pixelhood-x" target="_blank">OpenSea</a>
+                <a href="https://x.com/pixelhood_x" target="_blank">X (Twitter)</a>
+                <a href="#" target="_blank" id="footer-discord-link">Discord</a>
+            </div>
+            <div class="footer-eth-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.75l-6.25 10.5L12 16l6.25-3.75L12 1.75zM12 22.25l-6.25-8.5L12 17.5l6.25-3.75L12 22.25z"/></svg>
+                Built on Ethereum
+            </div>
+            <div class="footer-copy">© 2024 PIXELHOOD. All rights reserved.</div>
+        </div>
+    </footer>
+
+    <!-- ==========================================
+         JAVASCRIPT
+         ========================================== -->
+    <script>
+    // ============================================
+    // CONFIGURATION (Bu değerleri düzenleyin)
+    // ============================================
+    const CONFIG = {
+        // ====== PLACEHOLDER: Mint fiyatını ETH olarak ayarlayın ======
+        MINT_PRICE: 0.00,
+        // ====== PLACEHOLDER: Wallet başına max mint ======
+        MAX_PER_WALLET: 10,
+        // ====== PLACEHOLDER: Toplam supply ======
+        TOTAL_SUPPLY: 10000,
+        // ====== PLACEHOLDER: Şu anki mint edilen adet ======
+        CURRENT_MINTED: 0,
+
+        // ====== SEADROP CONTRACT CONFIG ======
+        // ====== PLACEHOLDER: NFT contract adresinizi girin ======
+        NFT_CONTRACT_ADDRESS: "",
+        // ====== PLACEHOLDER: SeaDrop contract adresini girin ======
+        SEADROP_CONTRACT_ADDRESS: "",
+        // ====== PLACEHOLDER: Fee recipient adresini girin ======
+        FEE_RECIPIENT: "",
+        // ====== PLACEHOLDER: Funder adresini girin (genellikle mint eden kişi) ======
+        FUNDER: "",
+
+        // SeaDrop mintPublic ABI
+        SEADROP_ABI: [
+            {
+                "inputs": [
+                    { "internalType": "address", "name": "nftContract", "type": "address" },
+                    { "internalType": "address", "name": "feeRecipient", "type": "address" },
+                    { "internalType": "address", "name": "minterIfNotPayer", "type": "address" },
+                    { "internalType": "uint256", "name": "quantity", "type": "uint256" }
+                ],
+                "name": "mintPublic",
+                "outputs": [],
+                "stateMutability": "payable",
+                "type": "function"
+            }
+        ]
+    };
+
+    // ============================================
+    // STATE
+    // ============================================
+    let currentQty = 1;
+    let walletAddress = null;
+    let provider = null;
+    let signer = null;
+
+    // ============================================
+    // PARTICLES BACKGROUND
+    // ============================================
+    (function initParticles() {
+        const canvas = document.getElementById('particles-canvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        const PARTICLE_COUNT = 60;
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function createParticle() {
+            return {
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 1,
+                speedX: (Math.random() - 0.5) * 0.3,
+                speedY: (Math.random() - 0.5) * 0.3,
+                opacity: Math.random() * 0.5 + 0.1,
+                color: ['#8b5cf6', '#06b6d4', '#f97316'][Math.floor(Math.random() * 3)]
+            };
+        }
+
+        function init() {
+            resize();
+            particles = Array.from({ length: PARTICLE_COUNT }, createParticle);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.x += p.speedX;
+                p.y += p.speedY;
+
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) p.y = canvas.height;
+                if (p.y > canvas.height) p.y = 0;
+
+                // Pixel-style square particles
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.opacity;
+                ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+            });
+
+            ctx.globalAlpha = 1;
+            requestAnimationFrame(animate);
+        }
+
+        window.addEventListener('resize', resize);
+        init();
+        animate();
+    })();
+
+    // ============================================
+    // NAVBAR SCROLL EFFECT
+    // ============================================
+    window.addEventListener('scroll', () => {
+        const navbar = document.getElementById('navbar');
+        navbar.classList.toggle('scrolled', window.scrollY > 50);
+    });
+
+    // ============================================
+    // MOBILE MENU
+    // ============================================
+    document.getElementById('mobile-toggle').addEventListener('click', () => {
+        document.getElementById('mobile-menu').classList.toggle('open');
+    });
+
+    function closeMobileMenu() {
+        document.getElementById('mobile-menu').classList.remove('open');
+    }
+
+    // ============================================
+    // SCROLL REVEAL (Intersection Observer)
+    // ============================================
+    const revealObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
+
+    document.querySelectorAll('.reveal, [data-reveal]').forEach(el => {
+        revealObserver.observe(el);
+    });
+
+    // Roadmap items
+    document.querySelectorAll('.roadmap-item').forEach(el => {
+        revealObserver.observe(el);
+    });
+
+    // ============================================
+    // STAT COUNTER ANIMATION
+    // ============================================
+    const statObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const el = entry.target;
+                const target = parseInt(el.dataset.target) || 0;
+                const suffix = el.dataset.suffix || '';
+                if (target === 0) {
+                    el.textContent = '—';
+                    return;
+                }
+
+                let current = 0;
+                const increment = Math.ceil(target / 60);
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        current = target;
+                        clearInterval(timer);
+                    }
+                    el.textContent = current.toLocaleString() + suffix;
+                }, 25);
+
+                statObserver.unobserve(el);
+            }
+        });
+    }, { threshold: 0.5 });
+
+    document.querySelectorAll('.stat-value[data-target]').forEach(el => {
+        statObserver.observe(el);
+    });
+
+    // ============================================
+    // FAQ ACCORDION
+    // ============================================
+    function toggleFaq(btn) {
+        const item = btn.closest('.faq-item');
+        const isOpen = item.classList.contains('open');
+        // Close all
+        document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+        // Toggle current
+        if (!isOpen) item.classList.add('open');
+    }
+
+    // ============================================
+    // MINT FUNCTIONALITY
+    // ============================================
+    function changeQty(delta) {
+        currentQty = Math.max(1, Math.min(CONFIG.MAX_PER_WALLET, currentQty + delta));
+        document.getElementById('mint-qty').textContent = currentQty;
+        updateTotalCost();
+    }
+
+    function updateTotalCost() {
+        const total = (currentQty * CONFIG.MINT_PRICE).toFixed(4);
+        document.getElementById('mint-total-cost').textContent = total + ' ETH';
+    }
+
+    // Initialize mint progress
+    function updateMintProgress() {
+        const pct = CONFIG.TOTAL_SUPPLY > 0 ? (CONFIG.CURRENT_MINTED / CONFIG.TOTAL_SUPPLY * 100) : 0;
+        document.getElementById('mint-progress-text').textContent =
+            CONFIG.CURRENT_MINTED.toLocaleString() + ' / ' + CONFIG.TOTAL_SUPPLY.toLocaleString();
+        
+        // Animate progress bar after a small delay
+        setTimeout(() => {
+            document.getElementById('mint-progress-fill').style.width = pct + '%';
+        }, 500);
+    }
+
+    // Connect Wallet
+    async function connectWallet() {
+        const btn = document.getElementById('btn-connect-wallet');
+        const mintBtn = document.getElementById('btn-mint');
+
+        if (typeof window.ethereum === 'undefined') {
+            alert('Please install MetaMask or another Ethereum wallet to connect.');
+            return;
+        }
+
+        try {
+            btn.textContent = '⏳ Connecting...';
+
+            provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_requestAccounts', []);
+            signer = await provider.getSigner();
+            walletAddress = accounts[0];
+
+            const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
+            btn.textContent = '✅ ' + shortAddr;
+            btn.classList.add('connected');
+
+            mintBtn.disabled = false;
+        } catch (err) {
+            console.error('Wallet connection failed:', err);
+            btn.textContent = '🔗 Connect Wallet';
+            alert('Wallet connection failed. Please try again.');
+        }
+    }
+
+    // Mint NFT
+    async function mintNFT() {
+        if (!signer || !walletAddress) {
+            alert('Please connect your wallet first.');
+            return;
+        }
+
+        if (!CONFIG.SEADROP_CONTRACT_ADDRESS || !CONFIG.NFT_CONTRACT_ADDRESS) {
+            alert('Mint is not configured yet. Contract addresses are not set.');
+            return;
+        }
+
+        const mintBtn = document.getElementById('btn-mint');
+        mintBtn.textContent = '⏳ MINTING...';
+        mintBtn.disabled = true;
+
+        try {
+            const seadropContract = new ethers.Contract(
+                CONFIG.SEADROP_CONTRACT_ADDRESS,
+                CONFIG.SEADROP_ABI,
+                signer
+            );
+
+            const totalCost = ethers.parseEther(
+                (currentQty * CONFIG.MINT_PRICE).toString()
+            );
+
+            // ====== SEADROP mintPublic CALL ======
+            const tx = await seadropContract.mintPublic(
+                CONFIG.NFT_CONTRACT_ADDRESS,
+                CONFIG.FEE_RECIPIENT,
+                CONFIG.FUNDER || ethers.ZeroAddress,
+                currentQty,
+                { value: totalCost }
+            );
+
+            mintBtn.textContent = '⛏️ TX PENDING...';
+            await tx.wait();
+
+            mintBtn.textContent = '✅ MINTED!';
+            setTimeout(() => {
+                mintBtn.textContent = '⚡ MINT NOW';
+                mintBtn.disabled = false;
+            }, 3000);
+
+        } catch (err) {
+            console.error('Mint failed:', err);
+            mintBtn.textContent = '⚡ MINT NOW';
+            mintBtn.disabled = false;
+
+            if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
+                alert('Transaction was rejected.');
+            } else {
+                alert('Mint failed: ' + (err.reason || err.message || 'Unknown error'));
+            }
+        }
+    }
+
+    // ============================================
+    // INITIALIZATION
+    // ============================================
+    document.addEventListener('DOMContentLoaded', () => {
+        updateTotalCost();
+        updateMintProgress();
+    });
+    </script>
+</body>
+</html>
