@@ -299,9 +299,26 @@
             animation: pulse 2s ease-in-out infinite;
         }
 
+        .hero-badge .dot.yellow {
+            background: #eab308;
+            animation: pulse-yellow 2s ease-in-out infinite;
+        }
+
         @keyframes pulse {
             0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
             50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+        }
+
+        @keyframes pulse-yellow {
+            0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.5); }
+            50% { opacity: 0.7; box-shadow: 0 0 0 8px rgba(234, 179, 8, 0); }
+        }
+
+        .hero-badge-countdown {
+            font-family: var(--font-pixel);
+            font-size: 0.6rem;
+            color: #eab308;
+            letter-spacing: 1px;
         }
 
         .hero-title {
@@ -845,6 +862,104 @@
             background: rgba(249, 115, 22, 0.15);
             color: var(--color-accent);
             border: 1px solid rgba(249, 115, 22, 0.3);
+        }
+
+        .mint-status-badge.waiting {
+            background: rgba(234, 179, 8, 0.15);
+            color: #eab308;
+            border: 1px solid rgba(234, 179, 8, 0.35);
+        }
+
+        .mint-status-badge.waiting .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #eab308;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Countdown timer */
+        .mint-countdown {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            margin: 1.5rem 0;
+        }
+
+        .cd-box {
+            background: var(--bg-card);
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 0.9rem;
+            min-width: 64px;
+            text-align: center;
+        }
+
+        .cd-value {
+            font-family: var(--font-pixel);
+            font-size: 1.2rem;
+            color: var(--color-primary);
+        }
+
+        .cd-label {
+            font-size: 0.45rem;
+            color: var(--color-text-muted);
+            margin-top: 4px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .cd-title {
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Mint phases table */
+        .mint-phases {
+            margin-bottom: 1.5rem;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .mint-phases-title {
+            font-size: 0.7rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 0.6rem 1rem;
+            background: rgba(139,92,246,0.07);
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .mint-phase-row {
+            display: grid;
+            grid-template-columns: 1.8fr 1fr 1fr 1.4fr;
+            gap: 0;
+            padding: 0.55rem 1rem;
+            font-size: 0.72rem;
+            border-bottom: 1px solid var(--color-border);
+            color: var(--color-text-dim);
+            align-items: center;
+        }
+
+        .mint-phase-row:last-child { border-bottom: none; }
+
+        .mint-phase-row.header {
+            font-size: 0.62rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: rgba(139,92,246,0.04);
+        }
+
+        .mint-phase-row.active-phase {
+            background: rgba(234,179,8,0.07);
+            color: var(--color-text);
+            font-weight: 600;
         }
 
         .mint-phase {
@@ -1450,9 +1565,10 @@
     <section class="hero" id="hero">
         <div class="hero-container">
             <div class="hero-content">
-                <div class="hero-badge">
-                    <span class="dot"></span>
-                    Minting Live
+                <div class="hero-badge" id="hero-badge">
+                    <span class="dot yellow" id="hero-dot"></span>
+                    <span id="hero-badge-text">Public Mint Pending</span>
+                    <span class="hero-badge-countdown" id="hero-badge-cd"></span>
                 </div>
                 <h1 class="hero-title">PIXEL<br>HOOD</h1>
                 <p class="hero-subtitle">
@@ -1678,12 +1794,54 @@
                 <div class="mint-card">
                     <!-- Status -->
                     <div class="mint-status">
-                        <!-- ====== PLACEHOLDER: .live → .upcoming olarak değiştirilebilir ====== -->
-                        <div class="mint-status-badge live">
+                        <div class="mint-status-badge waiting" id="mint-status-badge">
                             <span class="dot"></span>
-                            Public Mint
+                            <span id="mint-status-text">Pending</span>
                         </div>
-                        <span class="mint-phase">Phase 1</span>
+                        <span class="mint-phase">Phase 4 — Public Mint</span>
+                    </div>
+
+                    <!-- Mint Phases Table -->
+                    <div class="mint-phases">
+                        <div class="mint-phases-title">Mint Aşamaları</div>
+                        <div class="mint-phase-row header">
+                            <span>Aşama</span><span>Fiyat</span><span>Limit</span><span>Platform</span>
+                        </div>
+                        <div class="mint-phase-row">
+                            <span>Phase 1 — Team</span>
+                            <span>1 ETH</span>
+                            <span>1 NFT</span>
+                            <span>OpenSea</span>
+                        </div>
+                        <div class="mint-phase-row">
+                            <span>Phase 2 — GTD</span>
+                            <span>Ücretsiz</span>
+                            <span>1 NFT</span>
+                            <span>OpenSea</span>
+                        </div>
+                        <div class="mint-phase-row">
+                            <span>Phase 3 — FCFS</span>
+                            <span>Ücretsiz</span>
+                            <span>1 NFT</span>
+                            <span>OpenSea</span>
+                        </div>
+                        <div class="mint-phase-row active-phase">
+                            <span>⚡ Phase 4 — Public</span>
+                            <span>0.0012 ETH</span>
+                            <span>—</span>
+                            <span>OpenSea + Site</span>
+                        </div>
+                    </div>
+
+                    <!-- Countdown -->
+                    <div id="countdown-wrapper">
+                        <div class="cd-title">Public Mint Açılışına Kalan Süre</div>
+                        <div class="mint-countdown">
+                            <div class="cd-box"><div class="cd-value" id="cd-days">00</div><div class="cd-label">Gün</div></div>
+                            <div class="cd-box"><div class="cd-value" id="cd-hours">00</div><div class="cd-label">Saat</div></div>
+                            <div class="cd-box"><div class="cd-value" id="cd-minutes">00</div><div class="cd-label">Dakika</div></div>
+                            <div class="cd-box"><div class="cd-value" id="cd-seconds">00</div><div class="cd-label">Saniye</div></div>
+                        </div>
                     </div>
 
                     <!-- Progress -->
@@ -1698,38 +1856,33 @@
                     </div>
 
                     <!-- Price Info -->
-                    <div class="mint-price-section">
+                    <div class="mint-price-section" style="grid-template-columns: 1fr;">
                         <div class="mint-price-box">
                             <div class="label">Price</div>
-                            <!-- ====== PLACEHOLDER: Mint fiyatını ayarlayın ====== -->
-                            <div class="value"><span class="eth">0.00</span> ETH</div>
-                        </div>
-                        <div class="mint-price-box">
-                            <div class="label">Max Per Wallet</div>
-                            <div class="value" id="max-per-wallet">10</div>
+                            <div class="value"><span class="eth">0.0012</span> ETH</div>
                         </div>
                     </div>
 
                     <!-- Quantity Selector -->
-                    <div class="mint-quantity">
+                    <div class="mint-quantity" id="qty-wrapper" style="display:none;">
                         <button class="mint-qty-btn" id="qty-minus" onclick="changeQty(-1)">−</button>
                         <div class="mint-qty-display" id="mint-qty">1</div>
                         <button class="mint-qty-btn" id="qty-plus" onclick="changeQty(1)">+</button>
                     </div>
 
                     <!-- Total Cost -->
-                    <div class="mint-total">
+                    <div class="mint-total" id="total-wrapper" style="display:none;">
                         <div class="label">Total Cost</div>
-                        <div class="value" id="mint-total-cost">0.00 ETH</div>
+                        <div class="value" id="mint-total-cost">0.0012 ETH</div>
                     </div>
 
                     <!-- Wallet Button -->
-                    <button class="btn-wallet" id="btn-connect-wallet" onclick="connectWallet()">
+                    <button class="btn-wallet" id="btn-connect-wallet" onclick="connectWallet()" style="display:none;">
                         🔗 Connect Wallet
                     </button>
 
                     <!-- Mint Button -->
-                    <button class="btn btn-primary btn-mint" id="btn-mint" onclick="mintNFT()" disabled style="margin-top: 1rem;">
+                    <button class="btn btn-primary btn-mint" id="btn-mint" onclick="mintNFT()" disabled style="margin-top: 1rem; display:none;">
                         ⚡ MINT NOW
                     </button>
 
@@ -1947,23 +2100,15 @@
     // CONFIGURATION (Bu değerleri düzenleyin)
     // ============================================
     const CONFIG = {
-        // ====== PLACEHOLDER: Mint fiyatını ETH olarak ayarlayın ======
-        MINT_PRICE: 0.00,
-        // ====== PLACEHOLDER: Wallet başına max mint ======
-        MAX_PER_WALLET: 10,
-        // ====== PLACEHOLDER: Toplam supply ======
+        MINT_PRICE: 0.0012,
+        MAX_PER_WALLET: null, // Public mint'te limit yok
         TOTAL_SUPPLY: 10000,
-        // ====== PLACEHOLDER: Şu anki mint edilen adet ======
         CURRENT_MINTED: 0,
 
-        // ====== SEADROP CONTRACT CONFIG ======
-        // ====== PLACEHOLDER: NFT contract adresinizi girin ======
-        NFT_CONTRACT_ADDRESS: "",
-        // ====== PLACEHOLDER: SeaDrop contract adresini girin ======
-        SEADROP_CONTRACT_ADDRESS: "",
-        // ====== PLACEHOLDER: Fee recipient adresini girin ======
-        FEE_RECIPIENT: "",
-        // ====== PLACEHOLDER: Funder adresini girin (genellikle mint eden kişi) ======
+        // SeaDrop contract adresleri
+        NFT_CONTRACT_ADDRESS: "0x4da6987e4c4f768b2257f174dfd4f301fb86aa8a",
+        SEADROP_CONTRACT_ADDRESS: "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",
+        FEE_RECIPIENT: "0x0000a26b00c1f0df003000390027140000faa719",
         FUNDER: "",
 
         // SeaDrop mintPublic ABI
@@ -2138,7 +2283,8 @@
     // MINT FUNCTIONALITY
     // ============================================
     function changeQty(delta) {
-        currentQty = Math.max(1, Math.min(CONFIG.MAX_PER_WALLET, currentQty + delta));
+        const max = CONFIG.MAX_PER_WALLET || 9999;
+        currentQty = Math.max(1, Math.min(max, currentQty + delta));
         document.getElementById('mint-qty').textContent = currentQty;
         updateTotalCost();
     }
@@ -2249,11 +2395,87 @@
     }
 
     // ============================================
+    // COUNTDOWN & MINT OPEN LOGIC
+    // UTC-4 → 1 Mayıs 2026 11:00 geri sayım biter
+    //          1 Mayıs 2026 12:00 mint açılır
+    // ============================================
+    const COUNTDOWN_END  = new Date('2026-05-01T11:00:00-04:00').getTime(); // geri sayım durur
+    const MINT_OPEN_TIME = new Date('2026-05-01T12:00:00-04:00').getTime(); // mint açılır
+
+    function updateCountdown() {
+        const now  = Date.now();
+        const diff = COUNTDOWN_END - now;
+
+        const badge      = document.getElementById('mint-status-badge');
+        const statusText = document.getElementById('mint-status-text');
+        const cdWrapper  = document.getElementById('countdown-wrapper');
+        const qtyWrapper = document.getElementById('qty-wrapper');
+        const totalWrapper = document.getElementById('total-wrapper');
+        const connectBtn = document.getElementById('btn-connect-wallet');
+        const mintBtn    = document.getElementById('btn-mint');
+
+        // Hero badge elements
+        const heroDot    = document.getElementById('hero-dot');
+        const heroBadgeText = document.getElementById('hero-badge-text');
+        const heroBadgeCd   = document.getElementById('hero-badge-cd');
+
+        if (now >= MINT_OPEN_TIME) {
+            // ✅ Mint açık — yeşil
+            cdWrapper.style.display = 'none';
+            badge.className = 'mint-status-badge live';
+            statusText.textContent = 'Public Mint Live';
+            qtyWrapper.style.display = '';
+            totalWrapper.style.display = '';
+            connectBtn.style.display = '';
+            mintBtn.style.display = '';
+            // Hero badge → yeşil
+            heroDot.className = 'dot';
+            heroBadgeText.textContent = 'Minting Live';
+            heroBadgeCd.textContent = '';
+            return;
+        }
+
+        if (diff <= 0) {
+            // 11:00–12:00 arası: sayaç bitti, mint henüz açılmadı
+            cdWrapper.style.display = 'none';
+            badge.className = 'mint-status-badge waiting';
+            statusText.textContent = 'Pending';
+            heroDot.className = 'dot yellow';
+            heroBadgeText.textContent = 'Public Mint Pending';
+            heroBadgeCd.textContent = '';
+        } else {
+            // Geri sayım devam ediyor
+            const days    = Math.floor(diff / 86400000);
+            const hours   = Math.floor((diff % 86400000) / 3600000);
+            const minutes = Math.floor((diff % 3600000) / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+
+            const pad = n => String(n).padStart(2,'0');
+            document.getElementById('cd-days').textContent    = pad(days);
+            document.getElementById('cd-hours').textContent   = pad(hours);
+            document.getElementById('cd-minutes').textContent = pad(minutes);
+            document.getElementById('cd-seconds').textContent = pad(seconds);
+
+            // Hero badge mini sayaç
+            heroDot.className = 'dot yellow';
+            heroBadgeText.textContent = 'Public Mint Pending';
+            if (days > 0) {
+                heroBadgeCd.textContent = `— ${pad(days)}d ${pad(hours)}h ${pad(minutes)}m`;
+            } else {
+                heroBadgeCd.textContent = `— ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            }
+        }
+
+        setTimeout(updateCountdown, 1000);
+    }
+
+    // ============================================
     // INITIALIZATION
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
         updateTotalCost();
         updateMintProgress();
+        updateCountdown();
     });
     </script>
 </body>
