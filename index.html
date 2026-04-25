@@ -1049,28 +1049,51 @@
             color: var(--color-secondary);
         }
 
+        /* Two-column quantity + max row */
         .mint-quantity {
-            display: flex;
+            display: grid;
+            grid-template-columns: 1fr 1px 1fr;
             align-items: center;
-            justify-content: center;
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-            padding: 1rem;
+            margin-bottom: 1.5rem;
             border-radius: var(--radius-md);
             background: var(--bg-card);
             border: 1px solid var(--color-border);
+            overflow: hidden;
+        }
+
+        /* Left half */
+        .mint-qty-left {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 1rem 0.75rem;
+        }
+
+        .mint-qty-col-label {
+            font-size: 0.6rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+
+        .mint-qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
         }
 
         .mint-qty-btn {
-            width: 44px;
-            height: 44px;
+            width: 36px;
+            height: 36px;
             border-radius: var(--radius-sm);
             border: 1px solid var(--color-border);
             background: var(--bg-secondary);
             color: var(--color-text);
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: all 0.25s;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -1079,36 +1102,72 @@
 
         .mint-qty-btn:hover {
             border-color: var(--color-primary);
-            background: rgba(139, 92, 246, 0.15);
+            background: rgba(139, 92, 246, 0.18);
             color: var(--color-primary);
+            transform: scale(1.08);
         }
 
-        .mint-qty-display {
+        /* Qty number input */
+        .mint-qty-input {
             font-family: var(--font-pixel);
-            font-size: 1.5rem;
-            min-width: 60px;
+            font-size: 1.1rem;
+            width: 58px;
             text-align: center;
+            background: rgba(139,92,246,0.06);
+            border: 1px solid rgba(139,92,246,0.25);
+            border-radius: var(--radius-sm);
+            color: var(--color-text);
+            padding: 0.35rem 0.4rem;
+            outline: none;
+            -moz-appearance: textfield;
+            transition: border-color 0.25s, box-shadow 0.25s;
+        }
+        .mint-qty-input::-webkit-outer-spin-button,
+        .mint-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .mint-qty-input:focus {
+            border-color: var(--color-primary);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
         }
 
-        .mint-total {
-            text-align: center;
-            margin-bottom: 1.5rem;
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            background: rgba(139, 92, 246, 0.05);
-            border: 1px dashed var(--color-border);
+        /* Vertical divider */
+        .mint-qty-divider {
+            width: 1px;
+            align-self: stretch;
+            background: var(--color-border);
         }
 
-        .mint-total .label {
+        /* Right half — max mint */
+        .mint-qty-right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 1rem 0.75rem;
+        }
+
+        .mint-max-number {
+            font-family: var(--font-pixel);
+            font-size: 1.4rem;
+            color: var(--color-primary);
+            text-shadow: 0 0 16px var(--color-primary-glow);
+            line-height: 1;
+        }
+
+        .mint-max-sublabel {
+            font-size: 0.6rem;
+            color: var(--color-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .mint-qty-display { display: none; }
+        .mint-max-info { display: none !important; }
+
+        /* USD price below ETH */
+        .mint-usd-price {
             font-size: 0.75rem;
             color: var(--color-text-muted);
-            margin-bottom: 0.25rem;
-        }
-
-        .mint-total .value {
-            font-family: var(--font-pixel);
-            font-size: 1.2rem;
-            color: var(--color-secondary);
+            margin-top: 0.3rem;
         }
 
         .btn-mint {
@@ -1798,11 +1857,11 @@
                             <span class="dot"></span>
                             <span id="mint-status-text">Pending</span>
                         </div>
-                        <span class="mint-phase">Phase 4 — Public Mint</span>
+                        <span class="mint-phase" id="mint-phase-label">Phase 4 — Public Mint</span>
                     </div>
 
                     <!-- Mint Phases Table -->
-                    <div class="mint-phases">
+                    <div class="mint-phases" id="mint-phases-table">
                         <div class="mint-phases-title">Mint Phases</div>
                         <div class="mint-phase-row header">
                             <span>Phase</span><span>Price</span><span>Limit</span><span>Platform</span>
@@ -1860,21 +1919,40 @@
                         <div class="mint-price-box">
                             <div class="label">Price</div>
                             <div class="value"><span class="eth">0.0012</span> ETH</div>
+                            <div class="mint-usd-price" id="mint-price-usd">≈ $— USD</div>
                         </div>
                     </div>
 
-                    <!-- Quantity Selector -->
+                    <!-- Quantity Selector + Max Mint (iki kolon) -->
                     <div class="mint-quantity" id="qty-wrapper" style="display:none;">
-                        <button class="mint-qty-btn" id="qty-minus" onclick="changeQty(-1)">−</button>
-                        <div class="mint-qty-display" id="mint-qty">1</div>
-                        <button class="mint-qty-btn" id="qty-plus" onclick="changeQty(1)">+</button>
+                        <!-- Sol: miktar seçici -->
+                        <div class="mint-qty-left">
+                            <span class="mint-qty-col-label">Quantity</span>
+                            <div class="mint-qty-controls">
+                                <button class="mint-qty-btn" id="qty-minus" onclick="changeQty(-1)">−</button>
+                                <input
+                                    type="number"
+                                    class="mint-qty-input"
+                                    id="mint-qty-input"
+                                    value="1"
+                                    min="1"
+                                    oninput="setQtyFromInput(this.value)"
+                                >
+                                <button class="mint-qty-btn" id="qty-plus" onclick="changeQty(1)">+</button>
+                            </div>
+                        </div>
+                        <!-- Dikey çizgi -->
+                        <div class="mint-qty-divider"></div>
+                        <!-- Sağ: max mint -->
+                        <div class="mint-qty-right">
+                            <span class="mint-qty-col-label">Max Per Tx</span>
+                            <div class="mint-max-number" id="max-mint-display">100</div>
+                            <span class="mint-max-sublabel">NFTs</span>
+                        </div>
                     </div>
 
-                    <!-- Total Cost -->
-                    <div class="mint-total" id="total-wrapper" style="display:none;">
-                        <div class="label">Total Cost</div>
-                        <div class="value" id="mint-total-cost">0.0012 ETH</div>
-                    </div>
+                    <!-- Max Mint Info (eski, gizli) -->
+                    <div class="mint-max-info" id="max-mint-info" style="display:none;"></div>
 
                     <!-- Wallet Button -->
                     <button class="btn-wallet" id="btn-connect-wallet" onclick="connectWallet()" style="display:none;">
@@ -2283,16 +2361,35 @@
     // MINT FUNCTIONALITY
     // ============================================
     function changeQty(delta) {
-        const max = CONFIG.MAX_PER_WALLET || 9999;
-        currentQty = Math.max(1, Math.min(max, currentQty + delta));
-        document.getElementById('mint-qty').textContent = currentQty;
-        updateTotalCost();
+        currentQty = Math.max(1, currentQty + delta);
+        document.getElementById('mint-qty-input').value = currentQty;
     }
 
-    function updateTotalCost() {
-        const total = (currentQty * CONFIG.MINT_PRICE).toFixed(4);
-        document.getElementById('mint-total-cost').textContent = total + ' ETH';
+    function setQtyFromInput(val) {
+        const n = parseInt(val);
+        if (!isNaN(n) && n >= 1) {
+            currentQty = n;
+        }
     }
+
+    // ETH/USD fiyatını CoinGecko'dan çek
+    async function fetchEthPrice() {
+        try {
+            const res = await fetch(
+                'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
+            );
+            const data = await res.json();
+            const ethUsd = data?.ethereum?.usd;
+            if (ethUsd) {
+                const usdPrice = (CONFIG.MINT_PRICE * ethUsd).toFixed(2);
+                document.getElementById('mint-price-usd').textContent = '≈ $' + usdPrice + ' USD';
+            }
+        } catch (e) {
+            // sessizce geç
+        }
+    }
+
+    function updateTotalCost() { /* kaldırıldı */ }
 
     // Initialize mint progress
     function updateMintProgress() {
@@ -2410,7 +2507,6 @@
         const statusText = document.getElementById('mint-status-text');
         const cdWrapper  = document.getElementById('countdown-wrapper');
         const qtyWrapper = document.getElementById('qty-wrapper');
-        const totalWrapper = document.getElementById('total-wrapper');
         const connectBtn = document.getElementById('btn-connect-wallet');
         const mintBtn    = document.getElementById('btn-mint');
 
@@ -2425,9 +2521,11 @@
             badge.className = 'mint-status-badge live';
             statusText.textContent = 'Public Mint Live';
             qtyWrapper.style.display = '';
-            totalWrapper.style.display = '';
             connectBtn.style.display = '';
             mintBtn.style.display = '';
+            // Phases tablosu ve sağ etiket gizle
+            document.getElementById('mint-phases-table').style.display = 'none';
+            document.getElementById('mint-phase-label').style.display = 'none';
             // Hero badge → yeşil
             heroDot.className = 'dot';
             heroBadgeText.textContent = 'Minting Live';
@@ -2473,7 +2571,7 @@
     // INITIALIZATION
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
-        updateTotalCost();
+        fetchEthPrice();
         updateMintProgress();
         updateCountdown();
     });
