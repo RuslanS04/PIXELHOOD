@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PIXELHOOD — 10,000 Unique Pixel Characters on the Blockchain</title>
-    <meta name="description" content="PIXELHOOD is a collection of 10,000 unique pixel art characters living on the Ethereum blockchain. Join the hood, mint your character, and become part of the community.">
+    <meta name="description" content="PIXELHOOD is a collection of 10,000 unique pixel art characters living on the Base blockchain. Join the hood, mint your character, and become part of the community.">
     <meta property="og:title" content="PIXELHOOD — 10,000 Unique Pixel Characters">
-    <meta property="og:description" content="A collection of 10,000 unique pixel art characters on the Ethereum blockchain.">
+    <meta property="og:description" content="A collection of 10,000 unique pixel art characters on the Base blockchain.">
     <meta property="og:type" content="website">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:site" content="@pixelhoodx">
@@ -1631,7 +1631,7 @@
                 </div>
                 <h1 class="hero-title">PIXEL<br>HOOD</h1>
                 <p class="hero-subtitle">
-                    10,000 unique pixel art characters living on the Ethereum blockchain. 
+                    10,000 unique pixel art characters living on the Base blockchain. 
                     Each one is algorithmically generated and truly unique. Welcome to the hood.
                 </p>
                 <div class="hero-buttons">
@@ -1716,7 +1716,7 @@
                     <p>
                         PIXELHOOD is a collection of 10,000 algorithmically generated pixel art characters, 
                         each with their own unique combination of traits, colors, and personality. 
-                        Living forever on the Ethereum blockchain, every Pixelhood character is a one-of-a-kind 
+                        Living forever on the Base blockchain, every Pixelhood character is a one-of-a-kind 
                         digital collectible.
                     </p>
                     <p>
@@ -1746,8 +1746,8 @@
                             <span>ERC-721</span>
                         </div>
                         <div class="about-feature">
-                            <span class="icon">🚀</span>
-                            <span>SeaDrop</span>
+                            <span class="icon">🔵</span>
+                            <span>Base Network</span>
                         </div>
                     </div>
                 </div>
@@ -1967,7 +1967,7 @@
                     <!-- Info -->
                     <div class="mint-info">
                         Smart contract powered by OpenSea's SeaDrop protocol.<br>
-                        Gas fees are additional. Make sure you're on Ethereum Mainnet.
+                        Gas fees are additional. Make sure you're on <strong>Base</strong> network.
                     </div>
                 </div>
             </div>
@@ -1992,7 +1992,7 @@
                     <div class="roadmap-card">
                         <h4>🚀 The Genesis</h4>
                         <ul>
-                            <li>Smart contract deployment on Ethereum</li>
+                            <li>Smart contract deployment on Base</li>
                             <li>Public mint via SeaDrop protocol</li>
                             <li>Community channels (Discord, X) launch</li>
                             <li>OpenSea collection listing</li>
@@ -2063,7 +2063,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            PIXELHOOD is a collection of 10,000 unique pixel art characters stored on the Ethereum blockchain. Each character is algorithmically generated with a unique combination of traits, making every single one a rare, one-of-a-kind digital collectible.
+                            PIXELHOOD is a collection of 10,000 unique pixel art characters stored on the Base blockchain. Each character is algorithmically generated with a unique combination of traits, making every single one a rare, one-of-a-kind digital collectible.
                         </div>
                     </div>
                 </div>
@@ -2075,7 +2075,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Connect your Ethereum wallet (MetaMask recommended) using the "Connect Wallet" button in the Mint section above. Select the number of NFTs you'd like to mint, then click "MINT NOW". Confirm the transaction in your wallet, and your Pixelhood character will be minted directly to your wallet.
+                            Connect your Base-compatible wallet (MetaMask recommended) using the "Connect Wallet" button in the Mint section above. Select the number of NFTs you'd like to mint, then click "MINT NOW". Confirm the transaction in your wallet, and your Pixelhood character will be minted directly to your wallet.
                         </div>
                     </div>
                 </div>
@@ -2087,7 +2087,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            PIXELHOOD lives on the Ethereum blockchain (ERC-721 standard), deployed via OpenSea's SeaDrop protocol for a secure and reliable minting experience.
+                            PIXELHOOD lives on the Base blockchain (ERC-721 standard), deployed via OpenSea's SeaDrop protocol for a secure and reliable minting experience.
                         </div>
                     </div>
                 </div>
@@ -2111,7 +2111,7 @@
                     </button>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            After minting, your PIXELHOOD NFT will appear in your wallet and on OpenSea. You can also view it on any Ethereum-compatible NFT marketplace or wallet that supports ERC-721 tokens.
+                            After minting, your PIXELHOOD NFT will appear in your wallet and on OpenSea. You can also view it on any Base-compatible NFT marketplace or wallet that supports ERC-721 tokens.
                         </div>
                     </div>
                 </div>
@@ -2163,8 +2163,8 @@
                 <a href="#" target="_blank" id="footer-discord-link">Discord</a>
             </div>
             <div class="footer-eth-badge">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1.75l-6.25 10.5L12 16l6.25-3.75L12 1.75zM12 22.25l-6.25-8.5L12 17.5l6.25-3.75L12 22.25z"/></svg>
-                Built on Ethereum
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l4-5 4 5-4 2.5-4-2.5z" fill="white"/></svg>
+                Built on Base
             </div>
             <div class="footer-copy">© 2024 PIXELHOOD. All rights reserved.</div>
         </div>
@@ -2409,12 +2409,37 @@
         const mintBtn = document.getElementById('btn-mint');
 
         if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask or another Ethereum wallet to connect.');
+            alert('Please install MetaMask or another EVM-compatible wallet to connect.');
             return;
         }
 
         try {
             btn.textContent = '⏳ Connecting...';
+
+            provider = new ethers.BrowserProvider(window.ethereum);
+
+            // Base Mainnet kontrolü (chainId: 8453 = 0x2105)
+            const network = await provider.getNetwork();
+            if (network.chainId !== 8453n) {
+                try {
+                    await provider.send('wallet_switchEthereumChain', [{ chainId: '0x2105' }]);
+                } catch (switchErr) {
+                    // Base ağı cüzdanda tanımlı değilse ekle
+                    if (switchErr.code === 4902) {
+                        await provider.send('wallet_addEthereumChain', [{
+                            chainId: '0x2105',
+                            chainName: 'Base',
+                            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                            rpcUrls: ['https://mainnet.base.org'],
+                            blockExplorerUrls: ['https://basescan.org']
+                        }]);
+                    } else {
+                        throw switchErr;
+                    }
+                }
+                // Provider'ı yenile
+                provider = new ethers.BrowserProvider(window.ethereum);
+            }
 
             provider = new ethers.BrowserProvider(window.ethereum);
             const accounts = await provider.send('eth_requestAccounts', []);
@@ -2496,8 +2521,8 @@
     // UTC-4 → 1 Mayıs 2026 11:00 geri sayım biter
     //          1 Mayıs 2026 12:00 mint açılır
     // ============================================
-    const COUNTDOWN_END  = new Date('2026-04-28T11:00:00-05:00').getTime(); // geri sayım durur
-    const MINT_OPEN_TIME = new Date('2026-04-28T11:20:00-05:00').getTime(); // mint açılır
+    const COUNTDOWN_END  = new Date('2026-04-25T11:00:00-05:00').getTime(); // geri sayım durur
+    const MINT_OPEN_TIME = new Date('2026-04-25T11:20:00-05:00').getTime(); // mint açılır
 
     function updateCountdown() {
         const now  = Date.now();
