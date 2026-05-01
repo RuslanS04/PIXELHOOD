@@ -2178,7 +2178,7 @@
     // CONFIGURATION (Bu değerleri düzenleyin)
     // ============================================
     const CONFIG = {
-        MINT_PRICE: 0.0012,
+        MINT_PRICE: 0.000083,
         MAX_PER_WALLET: null, // Public mint'te limit yok
         TOTAL_SUPPLY: 10000,
         CURRENT_MINTED: 0,
@@ -2512,7 +2512,7 @@
     //          1 Mayıs 2026 12:00 mint açılır
     // ============================================
     const COUNTDOWN_END  = new Date('2026-05-01T11:00:00-05:00').getTime(); // geri sayım durur
-    const MINT_OPEN_TIME = new Date('2026-05-01T11:20:00-05:00').getTime(); // mint açılır
+    const MINT_OPEN_TIME = new Date('2026-05-01T11:00:00-05:00').getTime(); // mint açılır
 
     function updateCountdown() {
         const now  = Date.now();
