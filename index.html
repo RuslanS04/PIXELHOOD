@@ -2416,25 +2416,29 @@
         try {
             btn.textContent = '⏳ Connecting...';
 
-            provider = new ethers.BrowserProvider(window.ethereum);
+            // Hesap erişimi iste (MetaMask popup açılır)
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            walletAddress = accounts[0];
 
-            // Ethereum Mainnet kontrolü (chainId: 1 = 0x1)
-            const network = await provider.getNetwork();
-            if (network.chainId !== 1n) {
+            // Zincir kontrolü
+            const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+            const chainId = parseInt(chainIdHex, 16);
+            if (chainId !== 1) {
                 try {
-                    await provider.send('wallet_switchEthereumChain', [{ chainId: '0x1' }]);
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x1' }]
+                    });
                 } catch (switchErr) {
-                    // Ethereum Mainnet zaten her cüzdanda tanımlıdır
-                    throw switchErr;
+                    btn.textContent = '🔗 Connect Wallet';
+                    alert('Please switch to Ethereum Mainnet and try again.');
+                    return;
                 }
-                // Provider'ı yenile
-                provider = new ethers.BrowserProvider(window.ethereum);
             }
 
-            provider = new ethers.BrowserProvider(window.ethereum);
-            const accounts = await provider.send('eth_requestAccounts', []);
+            // BrowserProvider — MetaMask'ın kendi RPC'sini kullanır, ek node bağlantısı kurmaz
+            provider = new ethers.BrowserProvider(window.ethereum, 1);
             signer = await provider.getSigner();
-            walletAddress = accounts[0];
 
             const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
             btn.textContent = '✅ ' + shortAddr;
@@ -2450,7 +2454,7 @@
 
     // Mint NFT
     async function mintNFT() {
-        if (!signer || !walletAddress) {
+        if (!walletAddress) {
             alert('Please connect your wallet first.');
             return;
         }
@@ -2465,33 +2469,47 @@
         mintBtn.disabled = true;
 
         try {
+            // Her mint işleminden önce provider ve signer'ı taze oluştur
+            // staticNetwork: 1 → ethers.js'in eth_chainId/eth_blockNumber çağrısını atlamasını sağlar
+            const freshProvider = new ethers.BrowserProvider(window.ethereum, {
+                chainId: 1,
+                name: 'mainnet'
+            });
+            const freshSigner = await freshProvider.getSigner();
+
             const seadropContract = new ethers.Contract(
                 CONFIG.SEADROP_CONTRACT_ADDRESS,
                 CONFIG.SEADROP_ABI,
-                signer
+                freshSigner
             );
 
-            const totalCost = ethers.parseEther(
-                (currentQty * CONFIG.MINT_PRICE).toString()
-            );
+            // Miktarı güvenli şekilde hesapla (float hatasını önlemek için)
+            const priceWei = ethers.parseEther(CONFIG.MINT_PRICE.toFixed(18));
+            const totalCost = priceWei * BigInt(currentQty);
+
+            const funderAddr = CONFIG.FUNDER && CONFIG.FUNDER.length === 42
+                ? CONFIG.FUNDER
+                : ethers.ZeroAddress;
 
             // ====== SEADROP mintPublic CALL ======
             const tx = await seadropContract.mintPublic(
                 CONFIG.NFT_CONTRACT_ADDRESS,
                 CONFIG.FEE_RECIPIENT,
-                CONFIG.FUNDER || ethers.ZeroAddress,
+                funderAddr,
                 currentQty,
                 { value: totalCost }
             );
 
             mintBtn.textContent = '⛏️ TX PENDING...';
-            await tx.wait();
+
+            // tx.wait() yerine doğrudan hash'i bekle (eth_blockNumber sorununu önler)
+            await tx.wait(1);
 
             mintBtn.textContent = '✅ MINTED!';
             setTimeout(() => {
                 mintBtn.textContent = '⚡ MINT NOW';
                 mintBtn.disabled = false;
-            }, 3000);
+            }, 4000);
 
         } catch (err) {
             console.error('Mint failed:', err);
