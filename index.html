@@ -19,8 +19,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- ethers.js for wallet/mint -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js" defer></script>
+    <!-- ethers.js kaldırıldı: tüm RPC çağrıları window.ethereum.request ile yapılıyor -->
 
     <style>
         /* ============================================
@@ -2170,46 +2169,21 @@
     <!-- ==========================================
          JAVASCRIPT
          ========================================== -->
+    <!-- ethers.js artık sadece utils için yükleniyor, RPC için kullanılmıyor -->
     <script>
     // ============================================
-    // CONFIGURATION (Bu değerleri düzenleyin)
+    // CONFIGURATION
     // ============================================
     const CONFIG = {
         MINT_PRICE: 0.000083,
         MAX_PER_WALLET: null,
         TOTAL_SUPPLY: 10000,
         CURRENT_MINTED: 0,
-
-        // ── OpenSea API ──────────────────────────────
-        // OpenSea API key: https://docs.opensea.io/reference/api-keys
         OPENSEA_API_KEY: "c6510503f5ba4bcb93032b8ee32452a3",
-
-        // OpenSea koleksiyon slug'ı (URL'deki isim)
         OPENSEA_COLLECTION_SLUG: "pixelhood-x",
-
-        // NFT contract adresi
-        OPENSEA_CONTRACT_ADDRESS: "0x4da6987e4c4f768b2257f174dfd4f301fb86aa8a",
-
-        // ── SeaDrop contract adresleri ───────────────
         NFT_CONTRACT_ADDRESS: "0x4da6987e4c4f768b2257f174dfd4f301fb86aa8a",
         SEADROP_CONTRACT_ADDRESS: "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",
         FEE_RECIPIENT: "0x0000a26b00c1f0df003000390027140000faa719",
-
-        // SeaDrop mintPublic ABI
-        SEADROP_ABI: [
-            {
-                "inputs": [
-                    { "internalType": "address", "name": "nftContract", "type": "address" },
-                    { "internalType": "address", "name": "feeRecipient", "type": "address" },
-                    { "internalType": "address", "name": "minterIfNotPayer", "type": "address" },
-                    { "internalType": "uint256", "name": "quantity", "type": "uint256" }
-                ],
-                "name": "mintPublic",
-                "outputs": [],
-                "stateMutability": "payable",
-                "type": "function"
-            }
-        ]
     };
 
     // ============================================
@@ -2217,8 +2191,52 @@
     // ============================================
     let currentQty = 1;
     let walletAddress = null;
-    let provider = null;
-    let signer = null;
+
+    // ============================================
+    // UTILS — ethers.js'e BAĞIMLI DEĞİL
+    // ============================================
+
+    // BigInt tabanlı ETH → Wei dönüşümü (float precision hatası yok)
+    function parseEther(ethStr) {
+        const [intPart, decPart = ''] = String(ethStr).split('.');
+        const dec18 = (decPart + '000000000000000000').slice(0, 18);
+        return BigInt(intPart) * BigInt('1000000000000000000') + BigInt(dec18);
+    }
+
+    // Hex encode helpers (ham RPC için)
+    function toHex(n) {
+        return '0x' + BigInt(n).toString(16);
+    }
+
+    function padLeft32(hexStr) {
+        // Remove 0x prefix, pad to 64 hex chars (32 bytes)
+        return hexStr.replace('0x', '').padStart(64, '0');
+    }
+
+    // mintPublic(address,address,address,uint256) calldata encoder
+    // ABI encoding: 4-byte selector + 4×32-byte params
+    function encodeMintPublic(nftContract, feeRecipient, minterAddr, quantity) {
+        // keccak256("mintPublic(address,address,address,uint256)") first 4 bytes
+        const selector = '0x161ac21f';
+        const enc = (addr) => padLeft32(addr.toLowerCase().replace('0x', ''));
+        const encUint = (n) => BigInt(n).toString(16).padStart(64, '0');
+        return selector + enc(nftContract) + enc(feeRecipient) + enc(minterAddr) + encUint(quantity);
+    }
+
+    // Poll for transaction receipt (eth_getTransactionReceipt)
+    async function waitForReceipt(txHash, maxAttempts = 60, intervalMs = 3000) {
+        for (let i = 0; i < maxAttempts; i++) {
+            await new Promise(r => setTimeout(r, intervalMs));
+            const receipt = await window.ethereum.request({
+                method: 'eth_getTransactionReceipt',
+                params: [txHash]
+            });
+            if (receipt && receipt.blockNumber) {
+                return receipt;
+            }
+        }
+        throw new Error('Transaction not confirmed after ' + (maxAttempts * intervalMs / 1000) + 's');
+    }
 
     // ============================================
     // PARTICLES BACKGROUND
@@ -2253,22 +2271,16 @@
 
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
             particles.forEach(p => {
-                p.x += p.speedX;
-                p.y += p.speedY;
-
+                p.x += p.speedX; p.y += p.speedY;
                 if (p.x < 0) p.x = canvas.width;
                 if (p.x > canvas.width) p.x = 0;
                 if (p.y < 0) p.y = canvas.height;
                 if (p.y > canvas.height) p.y = 0;
-
-                // Pixel-style square particles
                 ctx.fillStyle = p.color;
                 ctx.globalAlpha = p.opacity;
                 ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
             });
-
             ctx.globalAlpha = 1;
             requestAnimationFrame(animate);
         }
@@ -2298,24 +2310,16 @@
     }
 
     // ============================================
-    // SCROLL REVEAL (Intersection Observer)
+    // SCROLL REVEAL
     // ============================================
     const revealObserver = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
-            if (entry.isIntersecting) {
-                entry.target.classList.add('visible');
-            }
+            if (entry.isIntersecting) entry.target.classList.add('visible');
         });
     }, { threshold: 0.15, rootMargin: '0px 0px -50px 0px' });
 
-    document.querySelectorAll('.reveal, [data-reveal]').forEach(el => {
-        revealObserver.observe(el);
-    });
-
-    // Roadmap items
-    document.querySelectorAll('.roadmap-item').forEach(el => {
-        revealObserver.observe(el);
-    });
+    document.querySelectorAll('.reveal, [data-reveal]').forEach(el => revealObserver.observe(el));
+    document.querySelectorAll('.roadmap-item').forEach(el => revealObserver.observe(el));
 
     // ============================================
     // STAT COUNTER ANIMATION
@@ -2326,30 +2330,20 @@
                 const el = entry.target;
                 const target = parseInt(el.dataset.target) || 0;
                 const suffix = el.dataset.suffix || '';
-                if (target === 0) {
-                    el.textContent = '—';
-                    return;
-                }
-
+                if (target === 0) { el.textContent = '—'; return; }
                 let current = 0;
                 const increment = Math.ceil(target / 60);
                 const timer = setInterval(() => {
                     current += increment;
-                    if (current >= target) {
-                        current = target;
-                        clearInterval(timer);
-                    }
+                    if (current >= target) { current = target; clearInterval(timer); }
                     el.textContent = current.toLocaleString() + suffix;
                 }, 25);
-
                 statObserver.unobserve(el);
             }
         });
     }, { threshold: 0.5 });
 
-    document.querySelectorAll('.stat-value[data-target]').forEach(el => {
-        statObserver.observe(el);
-    });
+    document.querySelectorAll('.stat-value[data-target]').forEach(el => statObserver.observe(el));
 
     // ============================================
     // FAQ ACCORDION
@@ -2357,14 +2351,12 @@
     function toggleFaq(btn) {
         const item = btn.closest('.faq-item');
         const isOpen = item.classList.contains('open');
-        // Close all
         document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
-        // Toggle current
         if (!isOpen) item.classList.add('open');
     }
 
     // ============================================
-    // MINT FUNCTIONALITY
+    // QTY CONTROLS
     // ============================================
     function changeQty(delta) {
         currentQty = Math.max(1, currentQty + delta);
@@ -2373,109 +2365,83 @@
 
     function setQtyFromInput(val) {
         const n = parseInt(val);
-        if (!isNaN(n) && n >= 1) {
-            currentQty = n;
-        }
+        if (!isNaN(n) && n >= 1) currentQty = n;
     }
 
     // ============================================
-    // OPENSEA API — Koleksiyon Verilerini Çek (V2 API - Düzeltilmiş)
+    // OPENSEA API — V2 (Düzeltilmiş field mapping)
     // ============================================
     async function fetchOpenSeaStats() {
         const apiKey = CONFIG.OPENSEA_API_KEY;
         const slug   = CONFIG.OPENSEA_COLLECTION_SLUG;
-        const contractAddr = CONFIG.OPENSEA_CONTRACT_ADDRESS;
-
-        if (!apiKey || apiKey === 'YOUR_OPENSEA_API_KEY_HERE') {
-            console.warn('⚠️ OpenSea API key girilmemiş.');
-            return;
-        }
+        if (!apiKey || apiKey === 'YOUR_OPENSEA_API_KEY_HERE') return;
 
         const headers = { 'x-api-key': apiKey, 'accept': 'application/json' };
 
         try {
-            // ── 1) Koleksiyon stats (floor price, owners) ──────────────
-            // OpenSea V2: /api/v2/collections/{slug}/stats
+            // ── Stats endpoint: floor_price + num_owners ──
             const statsRes = await fetch(
                 `https://api.opensea.io/api/v2/collections/${slug}/stats`,
                 { headers }
             );
-
             if (statsRes.ok) {
                 const stats = await statsRes.json();
-                // Floor price: stats.total.floor_price (ETH cinsinden)
+                // floor_price ETH cinsinden (V2 API doğru field)
                 const floor = stats?.total?.floor_price ?? null;
                 if (floor !== null && parseFloat(floor) > 0) {
                     document.getElementById('stat-floor').textContent =
                         parseFloat(floor).toFixed(4) + ' ETH';
                 }
-                // Unique owners
                 const owners = stats?.total?.num_owners ?? null;
                 if (owners !== null) {
                     document.getElementById('stat-holders').textContent =
                         parseInt(owners).toLocaleString();
                 }
-            } else {
-                console.warn('OpenSea stats hatası:', statsRes.status, await statsRes.text());
             }
 
-            // ── 2) NFT sayısı (minted) — contract endpoint ─────────────
-            // OpenSea V2: /api/v2/chain/ethereum/contract/{address}/nfts
-            // count parametresi ile toplam token sayısı alınır
-            // NOT: OpenSea, "next" cursor sistemi ile paginate eder.
-            // Toplam supply'ı koleksiyon endpoint'inden alıyoruz.
+            // ── Collection endpoint: total_supply (= minted) ──
             const colRes = await fetch(
                 `https://api.opensea.io/api/v2/collections/${slug}`,
                 { headers }
             );
-
             if (colRes.ok) {
                 const col = await colRes.json();
-
-                // total_supply = toplam mint edilmiş token sayısı
-                const totalSupply = col?.total_supply ?? col?.stats?.total_supply ?? null;
+                const totalSupply = col?.total_supply ?? null;
                 if (totalSupply !== null) {
                     const m = parseInt(totalSupply);
                     document.getElementById('stat-minted').textContent = m.toLocaleString();
                     CONFIG.CURRENT_MINTED = m;
                     updateMintProgress();
                 }
-
-                // owner_count = unique holder sayısı (stats'tan gelmezse buradan)
-                const ownerCount = col?.owner_count ?? null;
-                if (ownerCount !== null && document.getElementById('stat-holders').textContent === '—') {
-                    document.getElementById('stat-holders').textContent =
-                        parseInt(ownerCount).toLocaleString();
+                // owner_count fallback
+                if (document.getElementById('stat-holders').textContent === '—') {
+                    const oc = col?.owner_count ?? null;
+                    if (oc !== null) {
+                        document.getElementById('stat-holders').textContent =
+                            parseInt(oc).toLocaleString();
+                    }
                 }
-            } else {
-                console.warn('OpenSea collection hatası:', colRes.status);
             }
-
         } catch (e) {
             console.warn('OpenSea API hatası:', e.message);
         }
     }
 
-    // ETH/USD fiyatını çek (CoinGecko)
+    // ETH/USD — CoinGecko
     async function fetchEthPrice() {
         try {
-            const res = await fetch(
-                'https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd'
-            );
+            const res  = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd');
             const data = await res.json();
-            const ethUsd = data?.ethereum?.usd;
-            if (ethUsd) {
-                const usdPrice = (CONFIG.MINT_PRICE * ethUsd).toFixed(2);
-                document.getElementById('mint-price-usd').textContent = '≈ $' + usdPrice + ' USD';
+            const usd  = data?.ethereum?.usd;
+            if (usd) {
+                document.getElementById('mint-price-usd').textContent =
+                    '≈ $' + (CONFIG.MINT_PRICE * usd).toFixed(2) + ' USD';
             }
-        } catch (e) { /* sessizce geç */ }
+        } catch (e) { /* sessiz */ }
     }
 
-    // Mint progress bar güncelle
     function updateMintProgress() {
-        const pct = CONFIG.TOTAL_SUPPLY > 0
-            ? (CONFIG.CURRENT_MINTED / CONFIG.TOTAL_SUPPLY * 100)
-            : 0;
+        const pct = CONFIG.TOTAL_SUPPLY > 0 ? (CONFIG.CURRENT_MINTED / CONFIG.TOTAL_SUPPLY * 100) : 0;
         document.getElementById('mint-progress-text').textContent =
             CONFIG.CURRENT_MINTED.toLocaleString() + ' / ' + CONFIG.TOTAL_SUPPLY.toLocaleString();
         setTimeout(() => {
@@ -2484,14 +2450,16 @@
     }
 
     // ============================================
-    // CONNECT WALLET — Cüzdan Seçici + 403 Fix
+    // CONNECT WALLET
+    // wallet_requestPermissions → her seferinde hesap seçtir
+    // Sonra SADECE window.ethereum.request kullan (ethers.js RPC çağrısı YOK)
     // ============================================
     async function connectWallet() {
         const btn     = document.getElementById('btn-connect-wallet');
         const mintBtn = document.getElementById('btn-mint');
 
         if (typeof window.ethereum === 'undefined') {
-            alert('Please install MetaMask or another EVM-compatible wallet to connect.');
+            alert('Please install MetaMask or another EVM-compatible wallet.');
             return;
         }
 
@@ -2499,59 +2467,48 @@
             btn.textContent = '⏳ Connecting...';
             btn.disabled = true;
 
-            // 1) wallet_requestPermissions → cüzdan seçici popup'ı her zaman açar
-            //    Kullanıcı hangi cüzdanı/hesabı kullanmak istediğini seçebilir
+            // Her seferinde hesap seçici popup'ı zorla aç
             try {
                 await window.ethereum.request({
                     method: 'wallet_requestPermissions',
                     params: [{ eth_accounts: {} }]
                 });
             } catch (permErr) {
-                // Bazı cüzdanlar bu yöntemi desteklemez; fallback: eth_requestAccounts
-                if (permErr.code !== 4001) {
-                    console.warn('wallet_requestPermissions desteklenmiyor, fallback kullanılıyor.');
-                } else {
+                if (permErr.code === 4001) {
                     // Kullanıcı iptal etti
                     btn.textContent = '🔗 Connect Wallet';
                     btn.disabled = false;
                     return;
                 }
+                // Desteklenmiyor → fallback
+                console.warn('wallet_requestPermissions desteklenmiyor, eth_requestAccounts kullanılıyor');
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
             }
 
-            // 2) Seçilen hesabı al
+            // Seçilen hesabı al (eth_accounts → popup açmaz, sadece döndürür)
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (!accounts || accounts.length === 0) {
-                // Hiçbir hesap seçilmedi
                 btn.textContent = '🔗 Connect Wallet';
                 btn.disabled = false;
                 return;
             }
             walletAddress = accounts[0];
 
-            // 3) Chain kontrolü — window.ethereum.request (ethers.js çağrısı YOK → 403 olmaz)
+            // Chain kontrolü — SADECE window.ethereum.request (ethers.js YOK)
             const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
-            const chainId    = parseInt(chainIdHex, 16);
-
-            if (chainId !== 1) {
+            if (parseInt(chainIdHex, 16) !== 1) {
                 try {
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
                         params: [{ chainId: '0x1' }]
                     });
-                } catch (switchErr) {
+                } catch {
                     btn.textContent = '🔗 Connect Wallet';
                     btn.disabled = false;
-                    alert('Please switch to Ethereum Mainnet in your wallet and try again.');
+                    alert('Please switch to Ethereum Mainnet and try again.');
                     return;
                 }
             }
-
-            // 4) BrowserProvider — staticNetwork: true ile eth_blockNumber çağrısını engelle
-            //    Bu, "Request failed with status code 403" hatasının kökenidir.
-            //    ethers v6'da Network nesnesi ile statik ağ tanımlanır.
-            const staticNetwork = new ethers.Network('mainnet', 1);
-            provider = new ethers.BrowserProvider(window.ethereum, staticNetwork, { staticNetwork: true });
-            signer = await provider.getSigner();
 
             const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
             btn.textContent = '✅ ' + shortAddr;
@@ -2560,26 +2517,22 @@
             mintBtn.disabled = false;
 
         } catch (err) {
-            console.error('Wallet connection failed:', err);
+            console.error('connectWallet error:', err);
             btn.textContent = '🔗 Connect Wallet';
             btn.disabled = false;
-            if (err.code !== 4001) {
-                alert('Wallet connection failed. Please try again.');
-            }
+            if (err.code !== 4001) alert('Wallet connection failed. Please try again.');
         }
     }
 
     // ============================================
-    // MINT NFT — SeaDrop mintPublic (403 Fix: staticNetwork)
+    // MINT NFT — ethers.js KULLANILMIYOR
+    // Tüm RPC çağrıları window.ethereum.request ile yapılıyor.
+    // Bu sayede eth_blockNumber / 403 hatası TAMAMEN ENGELLENIYOR.
+    // mintbot.js'teki Node.js mantığının browser uyarlaması.
     // ============================================
     async function mintNFT() {
         if (!walletAddress) {
             alert('Please connect your wallet first.');
-            return;
-        }
-
-        if (!CONFIG.SEADROP_CONTRACT_ADDRESS || !CONFIG.NFT_CONTRACT_ADDRESS) {
-            alert('Contract addresses are not configured.');
             return;
         }
 
@@ -2588,44 +2541,78 @@
         mintBtn.disabled = true;
 
         try {
-            // staticNetwork: true → ethers.js'in arka planda eth_blockNumber yapmasını tamamen engeller.
-            // Bu, Pixelhood sitesinin kendi RPC proxy'sinin 403 döndürmesinin kök nedenidir.
-            // MetaMask'ın kendi RPC'si üzerinden gönderim yapıldığı için proxy bypass edilir.
-            const staticNetwork = new ethers.Network('mainnet', 1);
-            const freshProvider = new ethers.BrowserProvider(
-                window.ethereum,
-                staticNetwork,
-                { staticNetwork: true }
-            );
-            const freshSigner = await freshProvider.getSigner();
+            // Güncel hesabı kontrol et (kullanıcı cüzdanda değiştirmiş olabilir)
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (!accounts || accounts.length === 0) {
+                throw new Error('Wallet disconnected. Please reconnect.');
+            }
+            const fromAddr = accounts[0];
 
-            const contract = new ethers.Contract(
-                CONFIG.SEADROP_CONTRACT_ADDRESS,
-                CONFIG.SEADROP_ABI,
-                freshSigner
-            );
+            // Chain kontrolü
+            const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
+            if (parseInt(chainIdHex, 16) !== 1) {
+                throw new Error('Wrong network. Please switch to Ethereum Mainnet.');
+            }
 
-            // Fiyat hesabı — BigInt ile (float hatası olmaz)
-            const priceWei  = ethers.parseEther(CONFIG.MINT_PRICE.toFixed(18));
+            // Fiyat hesabı — BigInt (float hatası yok)
+            const priceWei  = parseEther(CONFIG.MINT_PRICE.toFixed(18));
             const totalCost = priceWei * BigInt(currentQty);
+            const valueHex  = toHex(totalCost);
 
-            // mintPublic — mintbot.js ile aynı parametre sırası
-            const tx = await contract.mintPublic(
-                CONFIG.NFT_CONTRACT_ADDRESS,   // nftContract
-                CONFIG.FEE_RECIPIENT,          // feeRecipient
-                walletAddress,                 // minterIfNotPayer (= payer)
-                currentQty,                    // quantity
-                { value: totalCost }
+            // mintPublic calldata — ABI encode
+            const data = encodeMintPublic(
+                CONFIG.NFT_CONTRACT_ADDRESS,  // nftContract
+                CONFIG.FEE_RECIPIENT,         // feeRecipient
+                fromAddr,                     // minterIfNotPayer (= caller)
+                currentQty                    // quantity
             );
+
+            // Gas tahmini — eth_estimateGas (blockNumber çağrısı YOK)
+            let gasEstimate;
+            try {
+                const gasHex = await window.ethereum.request({
+                    method: 'eth_estimateGas',
+                    params: [{
+                        from:  fromAddr,
+                        to:    CONFIG.SEADROP_CONTRACT_ADDRESS,
+                        data:  data,
+                        value: valueHex
+                    }]
+                });
+                // %20 buffer ekle
+                gasEstimate = toHex(BigInt(gasHex) * 120n / 100n);
+            } catch (gasErr) {
+                console.warn('Gas estimate failed, using fallback:', gasErr.message);
+                // Fallback: 150k × quantity
+                gasEstimate = toHex(BigInt(150000) * BigInt(currentQty));
+            }
+
+            // eth_sendTransaction — Metamask popup, ethers.js YOK
+            const txHash = await window.ethereum.request({
+                method: 'eth_sendTransaction',
+                params: [{
+                    from:  fromAddr,
+                    to:    CONFIG.SEADROP_CONTRACT_ADDRESS,
+                    data:  data,
+                    value: valueHex,
+                    gas:   gasEstimate
+                }]
+            });
 
             mintBtn.textContent = '⛏️ TX PENDING...';
-            console.log('🚀 Tx gönderildi:', tx.hash);
+            console.log('🚀 Tx gönderildi:', txHash);
+            console.log('🔗 Etherscan:', 'https://etherscan.io/tx/' + txHash);
 
-            const receipt = await tx.wait(1);
+            // Receipt bekle — eth_getTransactionReceipt polling (eth_blockNumber çağrısı YOK)
+            const receipt = await waitForReceipt(txHash);
             console.log('✅ Mint başarılı! Block:', receipt.blockNumber);
 
-            mintBtn.textContent = '✅ MINTED!';
+            // Başarı durumu — status 0x1 = success, 0x0 = revert
+            if (receipt.status === '0x0') {
+                throw new Error('Transaction reverted on-chain. Check contract conditions.');
+            }
 
+            mintBtn.textContent = '✅ MINTED!';
             CONFIG.CURRENT_MINTED += currentQty;
             updateMintProgress();
             document.getElementById('stat-minted').textContent =
@@ -2641,13 +2628,14 @@
             mintBtn.textContent = '⚡ MINT NOW';
             mintBtn.disabled = false;
 
-            if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
-                alert('Transaction rejected.');
+            const code = err.code;
+            if (code === 4001 || code === 'ACTION_REJECTED') {
+                alert('Transaction rejected by user.');
             } else if (err.message && err.message.includes('insufficient funds')) {
                 alert('Insufficient funds! You need at least ' +
-                    (CONFIG.MINT_PRICE * currentQty).toFixed(6) + ' ETH + gas fees.');
+                    (CONFIG.MINT_PRICE * currentQty).toFixed(6) + ' ETH + gas.');
             } else {
-                const msg = err.reason || err.data?.message || err.shortMessage || err.message || 'Unknown error';
+                const msg = err.data?.message || err.message || 'Unknown error';
                 alert('Mint failed: ' + msg);
             }
         }
@@ -2655,11 +2643,9 @@
 
     // ============================================
     // COUNTDOWN & MINT OPEN LOGIC
-    // UTC-4 → 1 Mayıs 2026 11:00 geri sayım biter
-    //          1 Mayıs 2026 12:00 mint açılır
     // ============================================
-    const COUNTDOWN_END  = new Date('2026-05-01T11:00:00-05:00').getTime(); // geri sayım durur
-    const MINT_OPEN_TIME = new Date('2026-05-01T11:00:00-05:00').getTime(); // mint açılır
+    const COUNTDOWN_END  = new Date('2026-05-01T11:00:00-05:00').getTime();
+    const MINT_OPEN_TIME = new Date('2026-05-01T11:00:00-05:00').getTime();
 
     function updateCountdown() {
         const now  = Date.now();
@@ -2671,24 +2657,19 @@
         const qtyWrapper = document.getElementById('qty-wrapper');
         const connectBtn = document.getElementById('btn-connect-wallet');
         const mintBtn    = document.getElementById('btn-mint');
-
-        // Hero badge elements
         const heroDot    = document.getElementById('hero-dot');
         const heroBadgeText = document.getElementById('hero-badge-text');
         const heroBadgeCd   = document.getElementById('hero-badge-cd');
 
         if (now >= MINT_OPEN_TIME) {
-            // ✅ Mint açık — yeşil
             cdWrapper.style.display = 'none';
             badge.className = 'mint-status-badge live';
             statusText.textContent = 'Public Mint Live';
             qtyWrapper.style.display = '';
             connectBtn.style.display = '';
             mintBtn.style.display = '';
-            // Phases tablosu ve sağ etiket gizle
             document.getElementById('mint-phases-table').style.display = 'none';
             document.getElementById('mint-phase-label').style.display = 'none';
-            // Hero badge → yeşil
             heroDot.className = 'dot';
             heroBadgeText.textContent = 'Minting Live';
             heroBadgeCd.textContent = '';
@@ -2696,7 +2677,6 @@
         }
 
         if (diff <= 0) {
-            // 11:00–12:00 arası: sayaç bitti, mint henüz açılmadı
             cdWrapper.style.display = 'none';
             badge.className = 'mint-status-badge waiting';
             statusText.textContent = 'Pending';
@@ -2704,42 +2684,35 @@
             heroBadgeText.textContent = 'Public Mint Pending';
             heroBadgeCd.textContent = '';
         } else {
-            // Geri sayım devam ediyor
             const days    = Math.floor(diff / 86400000);
             const hours   = Math.floor((diff % 86400000) / 3600000);
             const minutes = Math.floor((diff % 3600000) / 60000);
             const seconds = Math.floor((diff % 60000) / 1000);
+            const pad     = n => String(n).padStart(2, '0');
 
-            const pad = n => String(n).padStart(2,'0');
             document.getElementById('cd-days').textContent    = pad(days);
             document.getElementById('cd-hours').textContent   = pad(hours);
             document.getElementById('cd-minutes').textContent = pad(minutes);
             document.getElementById('cd-seconds').textContent = pad(seconds);
 
-            // Hero badge mini sayaç
             heroDot.className = 'dot yellow';
             heroBadgeText.textContent = 'Public Mint Pending';
-            if (days > 0) {
-                heroBadgeCd.textContent = `— ${pad(days)}d ${pad(hours)}h ${pad(minutes)}m`;
-            } else {
-                heroBadgeCd.textContent = `— ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-            }
+            heroBadgeCd.textContent = days > 0
+                ? `— ${pad(days)}d ${pad(hours)}h ${pad(minutes)}m`
+                : `— ${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
         }
 
         setTimeout(updateCountdown, 1000);
     }
 
     // ============================================
-    // INITIALIZATION
+    // INIT
     // ============================================
     document.addEventListener('DOMContentLoaded', () => {
         fetchEthPrice();
         updateMintProgress();
         updateCountdown();
-
-        // OpenSea verilerini çek (API key girilmişse)
         fetchOpenSeaStats();
-        // Her 2 dakikada bir yenile
         setInterval(fetchOpenSeaStats, 120000);
     });
     </script>
