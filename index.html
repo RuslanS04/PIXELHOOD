@@ -2181,26 +2181,19 @@
         CURRENT_MINTED: 0,
 
         // ── OpenSea API ──────────────────────────────
-        // OpenSea API key'inizi buraya girin:
-        // https://docs.opensea.io/reference/api-keys
+        // OpenSea API key: https://docs.opensea.io/reference/api-keys
         OPENSEA_API_KEY: "c6510503f5ba4bcb93032b8ee32452a3",
 
         // OpenSea koleksiyon slug'ı (URL'deki isim)
-        // Örnek: https://opensea.io/collection/pixelhood-x → "pixelhood-x"
         OPENSEA_COLLECTION_SLUG: "pixelhood-x",
 
-        // NFT contract adresi (OpenSea stats için)
+        // NFT contract adresi
         OPENSEA_CONTRACT_ADDRESS: "0x4da6987e4c4f768b2257f174dfd4f301fb86aa8a",
 
         // ── SeaDrop contract adresleri ───────────────
         NFT_CONTRACT_ADDRESS: "0x4da6987e4c4f768b2257f174dfd4f301fb86aa8a",
         SEADROP_CONTRACT_ADDRESS: "0x00005EA00Ac477B1030CE78506496e8C2dE24bf5",
         FEE_RECIPIENT: "0x0000a26b00c1f0df003000390027140000faa719",
-        FUNDER: "",
-
-        // ── Ethereum Mainnet Public RPC ──────────────
-        // Fallback RPC (MetaMask'ın önünde değil, sadece read için)
-        ETH_RPC: "https://ethereum.publicnode.com",
 
         // SeaDrop mintPublic ABI
         SEADROP_ABI: [
@@ -2386,81 +2379,76 @@
     }
 
     // ============================================
-    // OPENSEA API — Koleksiyon Verilerini Çek
+    // OPENSEA API — Koleksiyon Verilerini Çek (V2 API - Düzeltilmiş)
     // ============================================
     async function fetchOpenSeaStats() {
         const apiKey = CONFIG.OPENSEA_API_KEY;
         const slug   = CONFIG.OPENSEA_COLLECTION_SLUG;
+        const contractAddr = CONFIG.OPENSEA_CONTRACT_ADDRESS;
 
-        // API key girilmemişse sessizce geç
         if (!apiKey || apiKey === 'YOUR_OPENSEA_API_KEY_HERE') {
-            console.warn('⚠️ OpenSea API key girilmemiş. CONFIG.OPENSEA_API_KEY değerini güncelleyin.');
+            console.warn('⚠️ OpenSea API key girilmemiş.');
             return;
         }
 
+        const headers = { 'x-api-key': apiKey, 'accept': 'application/json' };
+
         try {
-            // 1) Koleksiyon genel bilgileri (floor price, owners, total_supply)
+            // ── 1) Koleksiyon stats (floor price, owners) ──────────────
+            // OpenSea V2: /api/v2/collections/{slug}/stats
+            const statsRes = await fetch(
+                `https://api.opensea.io/api/v2/collections/${slug}/stats`,
+                { headers }
+            );
+
+            if (statsRes.ok) {
+                const stats = await statsRes.json();
+                // Floor price: stats.total.floor_price (ETH cinsinden)
+                const floor = stats?.total?.floor_price ?? null;
+                if (floor !== null && parseFloat(floor) > 0) {
+                    document.getElementById('stat-floor').textContent =
+                        parseFloat(floor).toFixed(4) + ' ETH';
+                }
+                // Unique owners
+                const owners = stats?.total?.num_owners ?? null;
+                if (owners !== null) {
+                    document.getElementById('stat-holders').textContent =
+                        parseInt(owners).toLocaleString();
+                }
+            } else {
+                console.warn('OpenSea stats hatası:', statsRes.status, await statsRes.text());
+            }
+
+            // ── 2) NFT sayısı (minted) — contract endpoint ─────────────
+            // OpenSea V2: /api/v2/chain/ethereum/contract/{address}/nfts
+            // count parametresi ile toplam token sayısı alınır
+            // NOT: OpenSea, "next" cursor sistemi ile paginate eder.
+            // Toplam supply'ı koleksiyon endpoint'inden alıyoruz.
             const colRes = await fetch(
                 `https://api.opensea.io/api/v2/collections/${slug}`,
-                { headers: { 'x-api-key': apiKey, 'accept': 'application/json' } }
+                { headers }
             );
 
             if (colRes.ok) {
                 const col = await colRes.json();
 
-                // Floor price (ETH)
-                const floor = col?.payment_tokens?.[0]?.floor_price
-                           ?? col?.stats?.floor_price
-                           ?? null;
-                if (floor !== null && floor > 0) {
-                    document.getElementById('stat-floor').textContent =
-                        parseFloat(floor).toFixed(4) + ' ETH';
-                } else {
-                    document.getElementById('stat-floor').textContent = '—';
-                }
-
-                // Unique holders / owners
-                const owners = col?.owner_count ?? col?.stats?.num_owners ?? null;
-                if (owners !== null) {
-                    document.getElementById('stat-holders').textContent =
-                        parseInt(owners).toLocaleString();
-                }
-            }
-
-            // 2) Stats endpoint'inden minted sayısı
-            const statsRes = await fetch(
-                `https://api.opensea.io/api/v2/collections/${slug}/stats`,
-                { headers: { 'x-api-key': apiKey, 'accept': 'application/json' } }
-            );
-
-            if (statsRes.ok) {
-                const stats = await statsRes.json();
-
-                // total_supply = toplam minted (eğer koleksiyon tamamen satılmadıysa)
-                const minted = stats?.total?.num_sales != null
-                    ? null   // satış değil mint sayısı için farklı field
-                    : null;
-
-                // OpenSea V2'de minted = count veya num_minted
-                const numMinted = stats?.total?.num_minted
-                               ?? stats?.count
-                               ?? null;
-
-                if (numMinted !== null) {
-                    const m = parseInt(numMinted);
+                // total_supply = toplam mint edilmiş token sayısı
+                const totalSupply = col?.total_supply ?? col?.stats?.total_supply ?? null;
+                if (totalSupply !== null) {
+                    const m = parseInt(totalSupply);
                     document.getElementById('stat-minted').textContent = m.toLocaleString();
-
-                    // Mint progress bar + text güncelle
                     CONFIG.CURRENT_MINTED = m;
                     updateMintProgress();
                 }
 
-                // Floor price fallback (stats'tan)
-                const floorFromStats = stats?.total?.floor_price ?? null;
-                if (floorFromStats && document.getElementById('stat-floor').textContent === '—') {
-                    document.getElementById('stat-floor').textContent =
-                        parseFloat(floorFromStats).toFixed(4) + ' ETH';
+                // owner_count = unique holder sayısı (stats'tan gelmezse buradan)
+                const ownerCount = col?.owner_count ?? null;
+                if (ownerCount !== null && document.getElementById('stat-holders').textContent === '—') {
+                    document.getElementById('stat-holders').textContent =
+                        parseInt(ownerCount).toLocaleString();
                 }
+            } else {
+                console.warn('OpenSea collection hatası:', colRes.status);
             }
 
         } catch (e) {
@@ -2496,8 +2484,7 @@
     }
 
     // ============================================
-    // CONNECT WALLET
-    // (bot.js mantığı: önce hesap iste, sonra chain kontrol, sonra signer al)
+    // CONNECT WALLET — Cüzdan Seçici + 403 Fix
     // ============================================
     async function connectWallet() {
         const btn     = document.getElementById('btn-connect-wallet');
@@ -2512,11 +2499,36 @@
             btn.textContent = '⏳ Connecting...';
             btn.disabled = true;
 
-            // 1) Hesap erişimi — MetaMask popup
-            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            // 1) wallet_requestPermissions → cüzdan seçici popup'ı her zaman açar
+            //    Kullanıcı hangi cüzdanı/hesabı kullanmak istediğini seçebilir
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_requestPermissions',
+                    params: [{ eth_accounts: {} }]
+                });
+            } catch (permErr) {
+                // Bazı cüzdanlar bu yöntemi desteklemez; fallback: eth_requestAccounts
+                if (permErr.code !== 4001) {
+                    console.warn('wallet_requestPermissions desteklenmiyor, fallback kullanılıyor.');
+                } else {
+                    // Kullanıcı iptal etti
+                    btn.textContent = '🔗 Connect Wallet';
+                    btn.disabled = false;
+                    return;
+                }
+            }
+
+            // 2) Seçilen hesabı al
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (!accounts || accounts.length === 0) {
+                // Hiçbir hesap seçilmedi
+                btn.textContent = '🔗 Connect Wallet';
+                btn.disabled = false;
+                return;
+            }
             walletAddress = accounts[0];
 
-            // 2) Chain kontrolü — doğrudan window.ethereum ile (eth_chainId → 403 yok)
+            // 3) Chain kontrolü — window.ethereum.request (ethers.js çağrısı YOK → 403 olmaz)
             const chainIdHex = await window.ethereum.request({ method: 'eth_chainId' });
             const chainId    = parseInt(chainIdHex, 16);
 
@@ -2534,11 +2546,11 @@
                 }
             }
 
-            // 3) BrowserProvider — network'ü statik olarak ver (eth_blockNumber çağrısını önler)
-            provider = new ethers.BrowserProvider(window.ethereum, {
-                chainId: 1,
-                name: 'mainnet'
-            });
+            // 4) BrowserProvider — staticNetwork: true ile eth_blockNumber çağrısını engelle
+            //    Bu, "Request failed with status code 403" hatasının kökenidir.
+            //    ethers v6'da Network nesnesi ile statik ağ tanımlanır.
+            const staticNetwork = new ethers.Network('mainnet', 1);
+            provider = new ethers.BrowserProvider(window.ethereum, staticNetwork, { staticNetwork: true });
             signer = await provider.getSigner();
 
             const shortAddr = walletAddress.slice(0, 6) + '...' + walletAddress.slice(-4);
@@ -2558,8 +2570,7 @@
     }
 
     // ============================================
-    // MINT NFT
-    // (bot.js'teki mintNFT fonksiyonuyla aynı mantık — Ethereum mainnet uyarlandı)
+    // MINT NFT — SeaDrop mintPublic (403 Fix: staticNetwork)
     // ============================================
     async function mintNFT() {
         if (!walletAddress) {
@@ -2577,12 +2588,15 @@
         mintBtn.disabled = true;
 
         try {
-            // Her mint çağrısında taze provider + signer (bot.js mantığı)
-            // staticNetwork → ethers.js'in arka planda eth_blockNumber yapmasını engeller
-            const freshProvider = new ethers.BrowserProvider(window.ethereum, {
-                chainId: 1,
-                name: 'mainnet'
-            });
+            // staticNetwork: true → ethers.js'in arka planda eth_blockNumber yapmasını tamamen engeller.
+            // Bu, Pixelhood sitesinin kendi RPC proxy'sinin 403 döndürmesinin kök nedenidir.
+            // MetaMask'ın kendi RPC'si üzerinden gönderim yapıldığı için proxy bypass edilir.
+            const staticNetwork = new ethers.Network('mainnet', 1);
+            const freshProvider = new ethers.BrowserProvider(
+                window.ethereum,
+                staticNetwork,
+                { staticNetwork: true }
+            );
             const freshSigner = await freshProvider.getSigner();
 
             const contract = new ethers.Contract(
@@ -2591,18 +2605,15 @@
                 freshSigner
             );
 
-            // Fiyat hesabı — bot.js'teki gibi BigInt ile (float hatasını önler)
+            // Fiyat hesabı — BigInt ile (float hatası olmaz)
             const priceWei  = ethers.parseEther(CONFIG.MINT_PRICE.toFixed(18));
             const totalCost = priceWei * BigInt(currentQty);
 
-            // minterIfNotPayer = cüzdan adresi (bot.js'te wallet.address kullanılıyor)
-            const minterAddr = walletAddress;
-
-            // mintPublic çağrısı — bot.js ile birebir aynı parametre sırası
+            // mintPublic — mintbot.js ile aynı parametre sırası
             const tx = await contract.mintPublic(
                 CONFIG.NFT_CONTRACT_ADDRESS,   // nftContract
                 CONFIG.FEE_RECIPIENT,          // feeRecipient
-                minterAddr,                    // minterIfNotPayer
+                walletAddress,                 // minterIfNotPayer (= payer)
                 currentQty,                    // quantity
                 { value: totalCost }
             );
@@ -2610,13 +2621,11 @@
             mintBtn.textContent = '⛏️ TX PENDING...';
             console.log('🚀 Tx gönderildi:', tx.hash);
 
-            // tx.wait() — 1 confirmation bekle
             const receipt = await tx.wait(1);
             console.log('✅ Mint başarılı! Block:', receipt.blockNumber);
 
             mintBtn.textContent = '✅ MINTED!';
 
-            // Mint sayacını güncelle
             CONFIG.CURRENT_MINTED += currentQty;
             updateMintProgress();
             document.getElementById('stat-minted').textContent =
@@ -2634,14 +2643,15 @@
 
             if (err.code === 'ACTION_REJECTED' || err.code === 4001) {
                 alert('Transaction rejected.');
+            } else if (err.message && err.message.includes('insufficient funds')) {
+                alert('Insufficient funds! You need at least ' +
+                    (CONFIG.MINT_PRICE * currentQty).toFixed(6) + ' ETH + gas fees.');
             } else {
-                const msg = err.reason || err.data?.message || err.message || 'Unknown error';
+                const msg = err.reason || err.data?.message || err.shortMessage || err.message || 'Unknown error';
                 alert('Mint failed: ' + msg);
             }
         }
     }
-
-    function updateTotalCost() { /* kaldırıldı */ }
 
     // ============================================
     // COUNTDOWN & MINT OPEN LOGIC
